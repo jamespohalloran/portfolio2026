@@ -1,0 +1,63 @@
+/* Tailwind v4 — single import replaces the old @tailwind base/components/utilities. */
+@import 'tailwindcss';
+
+/* ─────────────────────────────────────────────────────────────────────
+   Design tokens (Tailwind v4 CSS-first config).
+
+   Every variable below is auto-exposed as a utility: `--color-frontal`
+   becomes `bg-frontal` / `fill-frontal` / `ring-frontal`, `--ease-bouncy`
+   becomes `ease-bouncy`, `--radius-cartoon` becomes `rounded-cartoon`, etc.
+   This @theme block is the v4 equivalent of the old tailwind.config.js.
+   ───────────────────────────────────────────────────────────────────── */
+@theme {
+	/* --- Base surfaces ------------------------------------------------ */
+	--color-cream: #faf8f5; /* warm off-white page background + cards */
+	--color-cream-deep: #f2ede4; /* toasted cream for gradient edges */
+
+	/* --- Ink (softer than pure black) -------------------------------- */
+	--color-charcoal: #2d2a32; /* text + thick cartoon outlines */
+	--color-charcoal-soft: #4a454f;
+
+	/* --- Brain lobe accents ------------------------------------------ */
+	--color-frontal: #c3a6f0; /* Frontal Lobe  → Projects  (violet)  */
+	--color-frontal-soft: #e4d7fb;
+	--color-cerebellum: #ffb59e; /* Cerebellum    → Experience (coral)  */
+	--color-cerebellum-soft: #ffe0d4;
+	--color-temporal: #a8e6cf; /* Temporal Lobe → Blog      (mint)    */
+	--color-temporal-soft: #d9f6ea;
+
+	/* --- Cartoon shape language -------------------------------------- */
+	--radius-cartoon: 1.75rem; /* chunky rounded corners */
+	--shadow-cartoon: 6px 6px 0 0 #2d2a32; /* offset, no-blur drop shadow */
+	--shadow-cartoon-sm: 3px 3px 0 0 #2d2a32;
+
+	/* --- Motion ------------------------------------------------------- */
+	--ease-bouncy: cubic-bezier(0.175, 0.885, 0.32, 1.275); /* playful bounce */
+
+	/* --- Type --------------------------------------------------------- */
+	--font-display: 'Nunito', ui-rounded, system-ui, sans-serif;
+}
+
+@layer base {
+	html {
+		/* Smooth the scroll-driven brain reveal on the home page. */
+		scroll-behavior: smooth;
+	}
+
+	body {
+		@apply bg-cream text-charcoal font-display antialiased;
+	}
+}
+
+@layer components {
+	/* Reusable chunky cartoon button — thick outline + offset shadow that
+	   presses in on hover using the custom bouncy easing.
+	   (v4 has no border-3 utility, so odd widths use arbitrary values.) */
+	.btn-cartoon {
+		@apply inline-flex items-center gap-2 rounded-cartoon border-[3px] border-charcoal
+			bg-white px-5 py-2.5 font-bold text-charcoal shadow-cartoon-sm
+			transition-transform duration-300 ease-bouncy
+			hover:-translate-y-0.5 active:translate-x-[3px] active:translate-y-[3px]
+			active:shadow-none;
+	}
+}
