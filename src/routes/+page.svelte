@@ -9,6 +9,9 @@
 	//      highlights it and swaps in a preview card linking to that section.
 	// ─────────────────────────────────────────────────────────────────────
 
+	// Resolves static assets correctly under any deploy base path ('' by default).
+	import { base } from '$app/paths';
+
 	// --- Scroll transition state -----------------------------------------
 	// Bound to the window below. innerHeight defaults to 1 to avoid a divide
 	// by zero before the browser reports real dimensions.
@@ -71,20 +74,26 @@
      SECTION 1 — The Mundane Hook (fixed, scales + fades on scroll)
      ═══════════════════════════════════════════════════════════════════ -->
 <div
-	class="fixed inset-0 z-10 flex items-center justify-center transition-none {hookInteractive
+	class="fixed inset-0 z-10 overflow-hidden transition-none {hookInteractive
 		? ''
 		: 'pointer-events-none'}"
-	style="opacity: {dishOpacity}; transform: scale({dishScale}); transform-origin: center;"
+	style="opacity: {dishOpacity}; transform: scale({dishScale}); transform-origin: 50% 42%;"
 	aria-hidden={!hookInteractive}
 >
-	<div class="flex flex-col items-center gap-6 px-6 text-center">
-		<!-- Placeholder for the kitchen/dishes illustration. Swap the emoji
-		     stack for the real scene art / SVG when it's ready. -->
-		<div
-			class="grid h-40 w-40 place-items-center rounded-cartoon border-[5px] border-charcoal bg-white text-6xl shadow-cartoon"
-		>
-			🍽️
-		</div>
+	<!-- The mundane hook: James doing the dishes. The whole scene is what the
+	     scroll zoom pushes into — transform-origin above is set on his head so
+	     it reads as "zooming into his brain". -->
+	<img
+		src="{base}/portfolio-hero.png"
+		alt="James in a ball cap washing dishes in a pastel cartoon kitchen"
+		class="h-full w-full object-cover object-center"
+		fetchpriority="high"
+	/>
+
+	<!-- Prompt over a soft cream scrim so the text stays legible on the art. -->
+	<div
+		class="absolute inset-x-0 bottom-0 flex flex-col items-center gap-4 bg-gradient-to-t from-cream via-cream/70 to-transparent px-6 pb-10 pt-28 text-center"
+	>
 		<p class="max-w-md text-2xl font-extrabold leading-tight text-charcoal sm:text-3xl">
 			Scroll to zoom into James's brain.
 		</p>
