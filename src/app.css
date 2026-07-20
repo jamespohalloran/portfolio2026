@@ -13,6 +13,7 @@
 	/* --- Base surfaces ------------------------------------------------ */
 	--color-cream: #faf8f5; /* warm off-white page background + cards */
 	--color-cream-deep: #f2ede4; /* toasted cream for gradient edges */
+	--color-parchment: #f7f1da; /* warm backdrop behind the brain + contact */
 
 	/* --- Ink (softer than pure black) -------------------------------- */
 	--color-charcoal: #2d2a32; /* text + thick cartoon outlines */

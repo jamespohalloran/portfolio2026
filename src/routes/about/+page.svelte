@@ -1,4 +1,71 @@
-<!-- /about — structural bones only. Build out content here. -->
-<section class="mx-auto max-w-3xl px-6 py-24">
-	<h1 class="text-4xl font-extrabold text-charcoal">About</h1>
+<!-- /about — fuller bio page. -->
+<script>
+	import { base } from '$app/paths';
+</script>
+
+<svelte:head>
+	<title>About · James O'Halloran</title>
+	<meta
+		name="description"
+		content="James O'Halloran — software developer from Prince Edward Island who ships games and web tools."
+	/>
+</svelte:head>
+
+<section class="mx-auto max-w-4xl px-6 py-20 sm:py-28">
+	<div class="grid gap-10 md:grid-cols-[16rem_1fr] md:items-start">
+		<!-- Illustrated portrait, framed in a soft cartoon card. -->
+		<div
+			class="mx-auto w-56 overflow-hidden rounded-cartoon border-[3px] border-charcoal bg-frontal-soft shadow-cartoon md:mx-0 md:w-full"
+		>
+			<img
+				src="{base}/james-avatar.svg"
+				alt="Illustrated portrait of James O'Halloran"
+				class="mx-auto block aspect-[4/5] w-full object-contain object-bottom p-4"
+			/>
+		</div>
+
+		<div>
+			<span class="text-xs font-bold uppercase tracking-widest text-charcoal-soft">About Me</span>
+			<h1 class="mt-3 text-4xl font-extrabold tracking-tight text-charcoal sm:text-5xl">
+				Hey, I'm James.
+			</h1>
+			<div class="mt-6 space-y-4 text-lg leading-relaxed text-charcoal-soft">
+				<p>
+					I'm a software developer from Prince Edward Island, Canada. I've been in the industry for
+					over ten years, and I've got a knack for starting up personal projects — some of which I
+					abandon after a few days, and some of which I dedicate grueling years to.
+				</p>
+				<p>
+					Most recently I built and sold two daily games,
+					<a class="link" href="https://kindahardgolf.com">Kinda Hard Golf</a>
+					and
+					<a class="link" href="https://squishybilliards.com">Squishy Billiards</a>. Before that I
+					worked on developer tooling and content platforms, bridging the gap between well-engineered
+					websites and content-creation for non-developers.
+				</p>
+				<p>
+					There's been a big ol' pile of lessons in between all these endeavors, and I like writing
+					about them.
+				</p>
+			</div>
+			<div class="mt-8 flex flex-wrap gap-3">
+				<a href="/projects" class="btn-cartoon">See my projects</a>
+				<a href="/blog" class="btn-cartoon !bg-temporal">Read the blog</a>
+			</div>
+		</div>
+	</div>
 </section>
+
+<style>
+	.link {
+		font-weight: 700;
+		color: var(--color-charcoal);
+		text-decoration: underline;
+		text-decoration-thickness: 2px;
+		text-underline-offset: 3px;
+		text-decoration-color: var(--color-frontal);
+	}
+	.link:hover {
+		text-decoration-color: var(--color-charcoal);
+	}
+</style>

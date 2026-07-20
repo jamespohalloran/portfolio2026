@@ -4,13 +4,12 @@
 	import '../app.css';
 	import { page } from '$app/stores';
 
-	// Single source of truth for the primary nav. The "Brain" entry is the
-	// home page; a `cta` flag marks Contact so it renders as the button.
+	// Single source of truth for the primary nav. `home` marks the exact-match
+	// Home link; a `cta` flag marks Contact so it renders as the button.
 	const nav = [
-		{ label: 'About', href: '/about' },
+		{ label: 'Home', href: '/', home: true },
 		{ label: 'Projects', href: '/projects' },
-		{ label: 'Brain', href: '/', home: true },
-		{ label: 'Experience', href: '/experience' },
+		{ label: 'About', href: '/about' },
 		{ label: 'Blog', href: '/blog' },
 		{ label: 'Contact', href: '/contact', cta: true }
 	];

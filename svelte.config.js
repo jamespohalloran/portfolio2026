@@ -1,5 +1,6 @@
 import adapter from '@sveltejs/adapter-static';
 import { vitePreprocess } from '@sveltejs/vite-plugin-svelte';
+import { mdsvex } from 'mdsvex';
 
 /**
  * SvelteKit configuration — 100% static output.
@@ -12,7 +13,11 @@ import { vitePreprocess } from '@sveltejs/vite-plugin-svelte';
  * @type {import('@sveltejs/kit').Config}
  */
 const config = {
-	preprocess: vitePreprocess(),
+	// Treat `.md` files as components too, so blog posts authored in Markdown
+	// (src/lib/posts/*.md) compile straight to Svelte components via mdsvex.
+	extensions: ['.svelte', '.md'],
+
+	preprocess: [vitePreprocess(), mdsvex({ extensions: ['.md'] })],
 
 	kit: {
 		adapter: adapter({
