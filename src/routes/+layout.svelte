@@ -18,14 +18,19 @@
 	// so /projects/foo still lights up the Projects link.
 	$: isActive = (href) =>
 		href === '/' ? $page.url.pathname === '/' : $page.url.pathname.startsWith(href);
+
+	// The home hero is full-bleed under the (overlay) header, so it needs no top
+	// clearance. Every other page does, to sit below the fixed header.
+	$: isHome = $page.url.pathname === '/';
 </script>
 
 <!-- Subtle pastel background gradient sits behind the whole site. -->
 <div
 	class="flex min-h-full flex-col bg-gradient-to-b from-cream via-cream to-cream-deep"
 >
-	<!-- Persistent, sticky, ultra-minimal header -->
-	<header class="sticky top-0 z-50 backdrop-blur-md">
+	<!-- Persistent, overlay, ultra-minimal header. Fixed (not sticky) so it
+	     doesn't reserve layout space above the full-bleed home hero. -->
+	<header class="fixed inset-x-0 top-0 z-50 backdrop-blur-md">
 		<nav
 			class="mx-auto flex max-w-5xl items-center justify-center gap-1 px-4 py-3 sm:gap-3"
 		>
@@ -51,8 +56,9 @@
 		</nav>
 	</header>
 
-	<!-- Page content -->
-	<main class="flex-1">
+	<!-- Page content. Non-home pages get top padding to clear the fixed header;
+	     the home hero fills to the very top. -->
+	<main class="flex-1 {isHome ? '' : 'pt-16'}">
 		<slot />
 	</main>
 </div>

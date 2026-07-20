@@ -36,6 +36,9 @@
 	$: dishScale = 1 + reveal * 0.6;
 	$: dishOpacity = 1 - reveal;
 	$: brainOpacity = reveal;
+	// Brain slides in from the left as it grows, settling onto the head. Start
+	// (46%) is the entering position; rest (61%) matches the hero zoom origin.
+	$: brainLeft = 46 + reveal * 15;
 	// Hand off pointer interaction at the crossfade midpoint: the hook stops
 	// catching clicks and the (now visible enough) brain starts.
 	$: hookInteractive = reveal < 0.5;
@@ -123,7 +126,7 @@
 			class="absolute inset-0 z-10 overflow-hidden transition-none {hookInteractive
 				? ''
 				: 'pointer-events-none'}"
-	style="opacity: {dishOpacity}; transform: scale({dishScale}); transform-origin: 50% 42%;"
+	style="opacity: {dishOpacity}; transform: scale({dishScale}); transform-origin: 61% 43%;"
 	aria-hidden={!hookInteractive}
 >
 	<!-- The mundane hook: James doing the dishes. The whole scene is what the
@@ -157,15 +160,28 @@
 				: 'pointer-events-none'}"
 			style="opacity: {brainOpacity};"
 		>
-	<div
-		class="relative mx-auto flex w-full max-w-6xl flex-col items-center gap-8 px-6 py-16 lg:block"
-	>
+	<div class="absolute inset-0">
 		<!-- ── The brain (inlined brain.svg) ────────────────────────────
 		     The three <g> groups from the art (big / middle / bottom) each
 		     become a hoverable, clickable region. Path geometry is verbatim
 		     from static/brain.svg — only the wrapping <g> gained interaction
-		     handlers and reactive dim/highlight classes. -->
-		<div class="relative mx-auto w-full max-w-2xl lg:translate-x-[4vw]">
+		     handlers and reactive dim/highlight classes.
+
+		     ── HEAD-FIT TUNING ─────────────────────────────────────────
+		     The brain is pinned to the spot the hero zooms into, and scales
+		     with the SAME `dishScale` (1 → 1.6) as the hero — so it grows
+		     into place as you scroll in, matching the head growing beneath
+		     it (the "zooming into my mind" effect). The `w-[…vw]` below is
+		     the BASE (scale 1) size; the rest size is that × 1.6.
+		     If the brain drifts off his head, nudge these knobs (keep them
+		     in sync with the hero's `transform-origin` above):
+		       • left-[53%]  → horizontal head center
+		       • top-[41%]   → vertical skull center
+		       • w-[…vw]     → base brain size (bigger = fills more) -->
+		<div
+			class="absolute top-[43%] w-[31vw] max-w-[20rem] sm:w-[23vw] lg:w-[18vw]"
+			style="left: {brainLeft}%; transform: translate(-50%, -50%) scale({dishScale}); transform-origin: center;"
+		>
 			<svg
 				viewBox="0 0 3462 2631"
 				class="w-full select-none overflow-visible"
@@ -479,8 +495,10 @@
 		<!-- ── Reactive side panel ──────────────────────────────────────
 		     Priority: a clicked (selected) region shows its full item list;
 		     otherwise a hovered region shows a teaser; otherwise a resting
-		     prompt. Floats at the left edge on desktop; stacks on mobile. -->
-		<aside class="w-full max-w-sm lg:absolute lg:left-6 lg:top-1/2 lg:w-80 lg:-translate-y-1/2">
+		     prompt. Pinned bottom-center on mobile, left-of-brain on desktop. -->
+		<aside
+			class="absolute inset-x-4 bottom-6 mx-auto max-h-[42vh] max-w-sm overflow-y-auto lg:inset-auto lg:bottom-auto lg:left-6 lg:top-1/2 lg:max-h-none lg:w-80 lg:-translate-y-1/2 lg:overflow-visible"
+		>
 			{#if selected}
 				{@const s = sections[selected]}
 				<div class="rounded-cartoon border-[3px] border-charcoal bg-white p-6 shadow-cartoon">
