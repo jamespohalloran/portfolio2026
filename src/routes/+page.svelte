@@ -125,7 +125,7 @@
 	$: totalRegions = order.length;
 
 	// ~0.55 viewports of scroll per region; the pin height (introVH) fits it.
-	const PER_REGION = 0.55;
+	const PER_REGION = 1.35;
 	$: dwell = Math.max(totalRegions * PER_REGION, 0.5);
 	$: introVH = Math.round((1.5 + dwell) * 100);
 
@@ -616,9 +616,15 @@
 	</div>
 
 	<!-- Scroll-snap markers — one invisible target per animated beat (hero +
-	     each region) so scrolling settles on each. -->
-	{#each snapTs as st (st)}
-		<div class="snap-pt" style="top: {st * 100}vh;" aria-hidden="true"></div>
+	     each region). Every beat except the hero uses `scroll-snap-stop: always`
+	     so a fast flick can't skip past a region — it's forced to stop on the
+	     next one. -->
+	{#each snapTs as st, i (st)}
+		<div
+			class="snap-pt {i > 0 ? 'snap-stop' : ''}"
+			style="top: {st * 100}vh;"
+			aria-hidden="true"
+		></div>
 	{/each}
 </div>
 
@@ -717,6 +723,10 @@
 		height: 1px;
 		pointer-events: none;
 		scroll-snap-align: start;
+	}
+	/* Forbid the scroll from flying past a region beat — one flick = one region. */
+	.snap-stop {
+		scroll-snap-stop: always;
 	}
 
 	/* Brain segments. NO transform-box/transform-origin here — the <g>s carry
