@@ -108,8 +108,10 @@
 	// to zoom in and then dwell, so you can click the brain.
 	$: t = scrollY / innerHeight;
 
-	// ZOOM controls how big the brain gets at the end of the zoom-in.
-	const ZOOM = 1.6; // final scale = 1 + ZOOM = 2.6×
+	// ZOOM controls how big the hero + brain get at the end of the zoom-in. Kept
+	// modest because the brain doesn't stay big — it immediately shrinks away to
+	// its parked corner, so a huge zoom only made that a longer fall.
+	const ZOOM = 0.5; // final scale = 1 + ZOOM = 1.5×
 	// Viewports of scroll the zoom-in takes. Kept short so you're never parked
 	// on a big bare brain with nothing to read — the region pane starts settling
 	// in the instant the zoom lands.
