@@ -368,8 +368,15 @@
 	// Move one region forward/back (wraps). This is what the mobile section bar's
 	// ‹ › arrows drive — on a phone there's no filmstrip to imply "there's more
 	// over here", so the regions need an explicit control, not just scroll.
+	// The regions are a LINE, not a loop: going forward off the end continues to
+	// About (the section that follows the pin), and going back off the front
+	// returns to the hero. Wrapping around would strand you in the pinned
+	// section with no way out but the skip pill.
+	$: atLastRegion = regionIndex >= totalRegions - 1;
 	function stepRegion(dir) {
-		const k = (((regionIndex + dir) % totalRegions) + totalRegions) % totalRegions;
+		const k = regionIndex + dir;
+		if (k >= totalRegions) return skipIntro();
+		if (k < 0) return window.scrollTo({ top: 0, behavior: 'smooth' });
 		goToRegion(order[k]);
 	}
 
@@ -620,13 +627,15 @@
 								{regionIndex + 1}/{totalRegions}
 							</span>
 						</span>
+						<!-- On the last region this arrow leaves the pin for About, so it
+						     turns into a ↓ rather than pretending there's more sideways. -->
 						<button
 							type="button"
 							class="nav-arrow"
-							aria-label="Next section"
+							aria-label={atLastRegion ? 'Continue to about me' : 'Next section'}
 							on:click={() => stepRegion(1)}
 						>
-							›
+							{atLastRegion ? '↓' : '›'}
 						</button>
 					</div>
 
