@@ -1,7 +1,6 @@
 <script>
 	// Resolves static assets correctly under any deploy base path ('' by default).
 	import { base } from '$app/paths';
-	import { fade } from 'svelte/transition';
 	import { posts } from '$lib/posts';
 	import { formatDate } from '$lib/formatDate';
 	import ContactSection from '$lib/components/ContactSection.svelte';
@@ -13,11 +12,12 @@
 	//     — drawn over the head on the hero's exact 4914×3981 canvas) share the
 	//     SAME box, SAME object-cover fit, and SAME zoom transform, so the brain
 	//     is pixel-locked to the head. It fades + grows in as you scroll.
-	//   • Once zoomed, the brain stays pinned while you keep scrolling: a single
-	//     flat walk over every (region, item) pair auto-selects the region and
-	//     cycles its items in a bottom filmstrip (focused card centered, others
-	//     peeking). Clicking a segment jumps the scroll to that region. Nothing
-	//     navigates away — the item cards are the only links.
+	//   • Once zoomed, the brain stays pinned while you keep scrolling: scroll
+	//     walks through the REGIONS (auto-selecting each), snapping to one at a
+	//     time. Clicking a segment jumps to that region. The bottom filmstrip
+	//     shows that region's items — several at once — and you CLICK (cards or
+	//     arrows) to move between them; the focused item's text sits in a box.
+	//     Nothing navigates away — the item cards are the only links.
 	//   • About Me · Recent posts · Contact — normal-flow sections after the pin.
 	//
 	//  NOTE: do NOT put `transform-box`/`transform-origin` on the segment <g>s —
@@ -38,25 +38,33 @@
 			items: [
 				{
 					title: 'Kinda Hard Golf',
-					note: 'A daily golf game that blew up to millions of players — since sold.',
+					details:
+						'A daily golf game I built solo in PixiJS over a few weeks. It struck a chord — reaching over 10,000 players — and after shipping 400 daily levels I sold the IP to a team of daily-game veterans.',
+					tags: ['10k+ players', 'Sold the IP', 'Solo-built'],
 					href: 'https://kindahardgolf.com',
 					image: 'https://kindahardgolf.com/hero.jpg'
 				},
 				{
 					title: 'Squishy Billiards',
-					note: 'A gooey, chaotic daily pool game.',
+					details:
+						'Pool, with a gooey chaotic twist and fresh daily levels. A physics playground I built to see if lightning could strike twice.',
+					tags: ['Daily levels', 'Physics toy'],
 					href: 'https://squishybilliards.com',
 					image: 'https://squishybilliards.com/hero.jpg'
 				},
 				{
 					title: 'Miner Meltdown',
-					note: 'Multiplayer sabotage game — built solo, sold the IP.',
+					details:
+						'A multiplayer sabotage/mining game I built solo and shipped on Steam over several years — later selling the IP.',
+					tags: ['Steam', 'Multiplayer', 'Sold the IP'],
 					href: 'https://store.steampowered.com/app/426190/Miner_Meltdown/',
 					image: null // TODO: drop a screenshot in /static/projects and set the path
 				},
 				{
 					title: 'DraftOrders.com',
-					note: 'A quirky tool for generating random draft orders.',
+					details:
+						'A quirky little tool that generates fantasy draft orders with some pizzazz. Built with Next.js, TypeScript & MobX.',
+					tags: ['Next.js', 'MobX'],
 					href: 'https://draftorders.com',
 					image: '/posts/introducing-draftorders/screenshot.png'
 				}
@@ -66,10 +74,17 @@
 			label: 'Experience',
 			color: '#ffb59e',
 			items: [
-				{ title: 'Brilliant.org', note: 'Scalable CMS architecture for interactive learning.' },
+				{
+					title: 'Brilliant.org',
+					details:
+						'Architected a massive, scalable CMS powering Brilliant’s interactive learning content.',
+					tags: ['CMS', 'Scale']
+				},
 				{
 					title: 'Forestry.io / TinaCMS',
-					note: 'Developer tooling bridging fast sites and non-dev content editing.'
+					details:
+						'Built developer tooling bridging fast, well-engineered sites and content editing that non-developers can actually use.',
+					tags: ['DevTools', 'Open source']
 				}
 			]
 		},
@@ -78,7 +93,7 @@
 			color: '#fceab1',
 			items: recentPosts.map((p) => ({
 				title: p.title,
-				note: p.description,
+				details: p.description,
 				href: `/blog/${p.slug}`
 			}))
 		}
@@ -103,37 +118,62 @@
 	$: hookInteractive = reveal < 0.5;
 	$: brainInteractive = reveal >= 0.5;
 
-	// --- Scroll-driven region + item browse ------------------------------
-	// The order the regions step through as you scroll.
+	// --- Scroll-driven region browse -------------------------------------
+	// Scrolling walks through the REGIONS (segments) only. The items within a
+	// region are NOT scroll-driven — you click between them in the filmstrip.
 	const order = ['big', 'middle', 'bottom'];
+	$: totalRegions = order.length;
 
-	// A flat list of every (region, item) pair in scroll order. Scrolling the
-	// pinned "dwell" walks this list: the region auto-selects as you cross into
-	// it and its items cycle within.
-	$: steps = order.flatMap((key) => sections[key].items.map((_, itemIndex) => ({ key, itemIndex })));
-	$: totalSteps = steps.length;
-
-	// ~0.24 viewports of scroll per item; the pin height (introVH) is sized to fit.
-	const PER_ITEM = 0.24;
-	$: dwell = Math.max(totalSteps * PER_ITEM, 0.5);
+	// ~0.55 viewports of scroll per region; the pin height (introVH) fits it.
+	const PER_REGION = 0.55;
+	$: dwell = Math.max(totalRegions * PER_REGION, 0.5);
 	$: introVH = Math.round((1.5 + dwell) * 100);
 
-	// Scroll-snap beats, as viewport fractions (t): the hero (t=0), then one per
-	// (region, item) step centered in its slice. Rendered as invisible markers
-	// in the intro so scrolling settles on each animated beat.
-	$: snapTs = [0, ...Array.from({ length: totalSteps }, (_, k) => 0.5 + ((k + 0.5) / totalSteps) * dwell)];
+	// Scroll-snap beats: the hero (t=0), the fully-zoomed brain (t=0.5, before it
+	// shrinks), then one per region (centered in its slice, brain settled).
+	$: snapTs = [
+		0,
+		0.5,
+		...Array.from({ length: totalRegions }, (_, k) => 0.5 + ((k + 0.5) / totalRegions) * dwell)
+	];
 
-	// Progress through the dwell (after the zoom completes at t = 0.5), 0→1.
+	// Progress through the dwell (after the zoom completes at t = 0.5) → region.
 	$: browse = Math.min(Math.max((t - 0.5) / dwell, 0), 1);
-	$: stepIndex = totalSteps ? Math.min(Math.floor(browse * totalSteps), totalSteps - 1) : 0;
-	$: step = steps[stepIndex];
+	$: regionIndex = totalRegions ? Math.min(Math.floor(browse * totalRegions), totalRegions - 1) : 0;
+	$: active = brainInteractive ? order[regionIndex] : null;
 
-	// The auto-selected region + focused item (only once we've zoomed in).
-	$: active = brainInteractive && step ? step.key : null;
-	$: focusIndex = step ? step.itemIndex : 0;
+	// As browsing begins the brain shrinks + lifts up to clear the lower half of
+	// the screen for the (info-rich) featured card. `settle` ramps 0→1 over the
+	// first slice of the browse; the pane fades in with it.
+	const SETTLE_FRAC = 0.14; // fraction of the browse spent settling
+	const BROWSE_SCALE = 1.12; // brain scale once settled
+	const LIFT_VH = 15; // how far up the brain lifts (vh)
+	$: settle = Math.min(Math.max(browse / SETTLE_FRAC, 0), 1);
+	$: brainScale = dishScale - settle * (1 + ZOOM - BROWSE_SCALE);
+	$: brainLift = -settle * LIFT_VH;
+	$: paneOpacity = active ? settle : 0;
+
+	// The focused item is click-driven; it resets to the first when the region
+	// changes.
+	let itemIndex = 0;
+	$: active, (itemIndex = 0);
 	$: items = active ? sections[active].items : [];
 	$: n = items.length;
+	$: focusIndex = n ? (((itemIndex % n) + n) % n) : 0;
 	$: current = n ? items[focusIndex] : null;
+
+	function focusItem(i) {
+		itemIndex = i;
+	}
+	function stepItem(dir) {
+		if (n) itemIndex = (focusIndex + dir + n) % n;
+	}
+	function cardKey(event, index) {
+		if (event.key === 'Enter' || event.key === ' ') {
+			event.preventDefault();
+			focusItem(index);
+		}
+	}
 
 	// Emphasis for a segment: the active one pops, the others dim; before the
 	// zoom finishes they idle-pulse to invite a click.
@@ -141,9 +181,9 @@
 
 	// Clicking a segment jumps the scroll straight to that region's slice.
 	function goToRegion(key) {
-		const start = steps.findIndex((s) => s.key === key);
-		if (start < 0) return;
-		const b = (start + 0.15) / totalSteps;
+		const k = order.indexOf(key);
+		if (k < 0) return;
+		const b = (k + 0.5) / totalRegions;
 		window.scrollTo({ top: (0.5 + b * dwell) * innerHeight, behavior: 'smooth' });
 	}
 	function onKey(event, key) {
@@ -154,8 +194,13 @@
 	}
 
 	// --- Filmstrip layout ------------------------------------------------
-	const CARD = 184; // px — card width (keep in sync with .tv width in <style>)
-	const STRIDE = CARD + 20; // card width + gap, for the centering math
+	// Non-focused cards are CARD wide; the focused one grows to FOCUS_CARD (both
+	// must match the .tv / .tv-focus widths in <style>). Cards before the focused
+	// one are all CARD-wide, so centering only needs FOCUS_CARD for the focused
+	// card's own half-width.
+	const CARD = 176;
+	const FOCUS_CARD = 300;
+	const STRIDE = CARD + 18; // non-focused card width + gap
 
 	const isExternal = (href) => !!href?.startsWith('http');
 	const imgSrc = (img) => (img ? (img.startsWith('http') ? img : base + img) : null);
@@ -201,7 +246,7 @@
 		     selected one pops while the others dim. -->
 		<div
 			class="absolute inset-0 z-20 transition-none {brainInteractive ? '' : 'pointer-events-none'}"
-			style="opacity: {brainOpacity}; transform: scale({dishScale}); transform-origin: {ORIGIN};"
+			style="opacity: {brainOpacity}; transform: translateY({brainLift}vh) scale({brainScale}); transform-origin: {ORIGIN};"
 			aria-hidden={!brainInteractive}
 		>
 			<svg
@@ -346,18 +391,18 @@
 			</svg>
 		</div>
 
-		<!-- ── Context pane — filmstrip carousel (fixed size, not zoomed) ─
-		     As you scroll, the region auto-selects and its items scroll past as
-		     cards; the focused one is centered + full-size, neighbours peek. -->
-
+		<!-- ── Context pane — filmstrip (fixed size, not zoomed) ─────────
+		     Scroll picks the region; the items here are CLICK-driven. Several
+		     cards show at once (focused one centered/larger); arrows or clicking
+		     a card change the focus. The focused item's text sits in its own box. -->
 		<div
 			class="pointer-events-none absolute inset-x-0 bottom-0 z-30 px-4 pb-6"
-			style="opacity: {active ? brainOpacity : 0}; transition: opacity 0.3s;"
+			style="opacity: {paneOpacity}; transition: opacity 0.3s;"
 			aria-hidden={!active}
 		>
 			{#if active && current}
 				{@const s = sections[active]}
-				<div class="pointer-events-auto mx-auto flex max-w-3xl flex-col items-center">
+				<div class="pointer-events-auto mx-auto flex w-full max-w-4xl flex-col items-center">
 					<!-- header -->
 					<div class="mb-3 flex items-center gap-2">
 						<span
@@ -370,52 +415,92 @@
 						<span class="text-xs font-bold text-charcoal-soft">· {focusIndex + 1}/{n}</span>
 					</div>
 
-					<!-- filmstrip: track is centered on the focused card via translateX -->
-					<div class="w-full overflow-hidden">
-						<div
-							class="flex items-end"
-							style="position: relative; left: 50%; gap: 20px; transform: translateX(calc(-1 * {focusIndex} * {STRIDE}px - {CARD /
-								2}px)); transition: transform 0.45s cubic-bezier(0.175, 0.885, 0.32, 1.275);"
-						>
-							{#each items as item, index (index)}
-								<div class="tv {index === focusIndex ? 'tv-focus' : 'tv-side'}">
-									<span class="tv-screen" style="background:{s.color};">
-										{#if imgSrc(item.image)}
-											<img src={imgSrc(item.image)} alt={item.title} loading="lazy" />
-										{:else}
-											<span class="tv-ph">{item.title}</span>
-										{/if}
-									</span>
-									<span class="tv-foot"></span>
-								</div>
-							{/each}
-						</div>
-					</div>
+					<!-- filmstrip row: ‹ arrow · cards · arrow ›. Cards align at the
+					     top so the focused one can grow downward with its text. -->
+					<div class="flex w-full items-start gap-2">
+						{#if n > 1}
+							<button
+								type="button"
+								class="nav-arrow mt-14"
+								aria-label="Previous"
+								on:click={() => stepItem(-1)}
+							>
+								‹
+							</button>
+						{/if}
 
-					<!-- caption for the focused item -->
-					{#key current.title}
-						<div class="mt-3 max-w-md text-center" in:fade={{ duration: 220 }}>
-							<h3 class="text-lg font-extrabold leading-snug text-charcoal">{current.title}</h3>
-							<p class="mt-1 text-sm text-charcoal-soft">{current.note}</p>
-							{#if current.href}
-								<a
-									href={current.href}
-									target={isExternal(current.href) ? '_blank' : undefined}
-									rel={isExternal(current.href) ? 'noopener noreferrer' : undefined}
-									class="btn-cartoon mt-3 text-sm"
-								>
-									{isExternal(current.href) ? 'Visit' : 'Read'} →
-								</a>
-							{/if}
+						<div class="relative flex-1 overflow-hidden pb-2">
+							<div
+								class="flex items-start"
+								style="position: relative; left: 50%; gap: 18px; transform: translateX(calc(-1 * {focusIndex} * {STRIDE}px - {FOCUS_CARD /
+									2}px)); transition: transform 0.45s cubic-bezier(0.175, 0.885, 0.32, 1.275);"
+							>
+								{#each items as item, index (index)}
+									{@const focused = index === focusIndex}
+									<!-- One card element for every item so its width animates when it
+									     becomes / stops being the focused (wider + taller) card. -->
+									<div
+										class="tv {focused ? 'tv-focus' : 'tv-side'}"
+										role={focused ? undefined : 'button'}
+										tabindex={focused ? undefined : 0}
+										aria-label={focused ? undefined : `Show ${item.title}`}
+										on:click={() => focusItem(index)}
+										on:keydown={(e) => cardKey(e, index)}
+									>
+										<span class="{focused ? 'tv-fscreen' : 'tv-screen'}" style="background:{s.color};">
+											{#if imgSrc(item.image)}
+												<img src={imgSrc(item.image)} alt={item.title} loading="lazy" />
+											{:else}
+												<span class="tv-ph">{item.title}</span>
+											{/if}
+										</span>
+										{#if focused}
+											<span class="tv-body">
+												<span class="block text-lg font-extrabold leading-snug text-charcoal">
+													{item.title}
+												</span>
+												<span class="mt-1.5 block text-sm leading-normal text-charcoal-soft">
+													{item.details}
+												</span>
+												{#if item.tags?.length}
+													<span class="mt-2.5 flex flex-wrap justify-center gap-1.5">
+														{#each item.tags as tag}
+															<span class="tv-tag">{tag}</span>
+														{/each}
+													</span>
+												{/if}
+												{#if item.href}
+													<a
+														href={item.href}
+														target={isExternal(item.href) ? '_blank' : undefined}
+														rel={isExternal(item.href) ? 'noopener noreferrer' : undefined}
+														class="tv-link"
+													>
+														{isExternal(item.href) ? 'Visit' : 'Read'} →
+													</a>
+												{/if}
+											</span>
+										{:else}
+											<span class="tv-foot"></span>
+										{/if}
+									</div>
+								{/each}
+							</div>
 						</div>
-					{/key}
+
+						{#if n > 1}
+							<button type="button" class="nav-arrow mt-14" aria-label="Next" on:click={() => stepItem(1)}>
+								›
+							</button>
+						{/if}
+					</div>
 				</div>
 			{/if}
 		</div>
 	</div>
 
 	<!-- Scroll-snap markers — one invisible target per animated beat (hero +
-	     each region/item step) so scrolling settles on each. -->
+	     each region) so scrolling settles on each. -->
 	{#each snapTs as st (st)}
 		<div class="snap-pt" style="top: {st * 100}vh;" aria-hidden="true"></div>
 	{/each}
@@ -557,29 +642,111 @@
 
 	/* ── Filmstrip cards (cartoon "TV" screens) ─────────────────────── */
 	.tv {
-		cursor: default;
-		flex: 0 0 184px; /* keep in sync with CARD in <script> */
-		width: 184px;
+		flex: 0 0 176px; /* CARD in <script> */
+		width: 176px;
 		display: block;
 		border: 0;
 		background: transparent;
 		padding: 0;
 		cursor: pointer;
-		transform-origin: bottom center;
+		transform-origin: top center;
 		transition:
 			transform 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275),
-			opacity 0.35s ease;
+			opacity 0.35s ease,
+			flex-basis 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275),
+			width 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
 	}
-	.tv-focus {
-		transform: scale(1);
-		opacity: 1;
-	}
+	/* Neighbours: compact TVs, clearly visible (not faded out) so several read
+	   at once. */
 	.tv-side {
-		transform: scale(0.78);
-		opacity: 0.5;
+		transform: scale(0.88);
+		opacity: 0.72;
 	}
 	.tv-side:hover {
-		opacity: 0.8;
+		opacity: 1;
+		transform: scale(0.92);
+	}
+	/* Focused card: ONE container, wider + taller, holding image + description. */
+	.tv-focus {
+		flex: 0 0 300px; /* FOCUS_CARD in <script> */
+		width: 300px;
+		cursor: default;
+		overflow: hidden;
+		border: 4px solid var(--color-charcoal);
+		border-radius: 1.1rem;
+		background: white;
+		box-shadow: var(--shadow-cartoon-sm);
+		text-align: center;
+	}
+	/* Stat/detail chips inside the featured card. */
+	.tv-tag {
+		display: inline-block;
+		border: 2px solid var(--color-charcoal);
+		border-radius: 9999px;
+		padding: 0.05rem 0.5rem;
+		font-size: 0.66rem;
+		font-weight: 800;
+		color: var(--color-charcoal);
+		background: var(--color-cream);
+	}
+	.tv-fscreen {
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		width: 100%;
+		aspect-ratio: 4 / 3;
+		overflow: hidden;
+		border-bottom: 4px solid var(--color-charcoal);
+	}
+	.tv-fscreen img {
+		width: 100%;
+		height: 100%;
+		object-fit: cover;
+	}
+	.tv-body {
+		display: block;
+		padding: 0.65rem 0.7rem 0.75rem;
+	}
+	.tv-link {
+		display: inline-block;
+		margin-top: 0.55rem;
+		border: 2px solid var(--color-charcoal);
+		border-radius: 9999px;
+		padding: 0.15rem 0.7rem;
+		font-size: 0.72rem;
+		font-weight: 800;
+		color: var(--color-charcoal);
+		background: white;
+		transition: transform 0.2s ease;
+	}
+	.tv-link:hover {
+		transform: translateY(-1px);
+	}
+
+	/* Prev/next arrows. */
+	.nav-arrow {
+		display: flex;
+		height: 2.25rem;
+		width: 2.25rem;
+		flex-shrink: 0;
+		align-items: center;
+		justify-content: center;
+		border: 3px solid var(--color-charcoal);
+		border-radius: 9999px;
+		background: white;
+		font-size: 1.25rem;
+		font-weight: 800;
+		line-height: 1;
+		color: var(--color-charcoal);
+		box-shadow: var(--shadow-cartoon-sm);
+		transition: transform 0.2s ease;
+	}
+	.nav-arrow:hover {
+		transform: translateY(-2px);
+	}
+	.nav-arrow:active {
+		transform: translate(2px, 2px);
+		box-shadow: none;
 	}
 	.tv-screen {
 		display: flex;
