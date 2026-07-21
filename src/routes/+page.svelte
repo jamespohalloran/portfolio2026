@@ -1,6 +1,7 @@
 <script>
 	// Resolves static assets correctly under any deploy base path ('' by default).
 	import { base } from '$app/paths';
+	import { onDestroy } from 'svelte';
 	import { posts } from '$lib/posts';
 	import { formatDate } from '$lib/formatDate';
 	import ContactSection from '$lib/components/ContactSection.svelte';
@@ -101,6 +102,7 @@
 	// --- Scroll transition state -----------------------------------------
 	let scrollY = 0;
 	let innerHeight = 1;
+	let innerWidth = 0;
 
 	// Viewports scrolled. The intro is pinned (sticky layer below) long enough
 	// to zoom in and then dwell, so you can click the brain.
@@ -108,10 +110,14 @@
 
 	// ZOOM controls how big the brain gets at the end of the zoom-in.
 	const ZOOM = 1.6; // final scale = 1 + ZOOM = 2.6×
+	// Viewports of scroll the zoom-in takes. Kept short so you're never parked
+	// on a big bare brain with nothing to read — the region pane starts settling
+	// in the instant the zoom lands.
+	const ZOOM_END = 0.4;
 	// Shared zoom focal point (the head). Hero + brain MUST match.
 	const ORIGIN = '61% 43%';
 
-	$: reveal = Math.min(Math.max(t / 0.5, 0), 1); // 0→1 over first half-viewport
+	$: reveal = Math.min(Math.max(t / ZOOM_END, 0), 1); // 0→1 over the zoom
 	$: dishScale = 1 + reveal * ZOOM;
 	$: dishOpacity = 1 - reveal;
 	$: brainOpacity = reveal;
@@ -124,34 +130,104 @@
 	const order = ['big', 'middle', 'bottom'];
 	$: totalRegions = order.length;
 
-	// ~0.55 viewports of scroll per region; the pin height (introVH) fits it.
-	const PER_REGION = 1.35;
+	// Viewports of scroll per region — short enough that the whole brain section
+	// reads quickly; the pin height (introVH) is derived from it.
+	const PER_REGION = 0.8;
 	$: dwell = Math.max(totalRegions * PER_REGION, 0.5);
-	$: introVH = Math.round((1.5 + dwell) * 100);
+	$: introVH = Math.round((1 + ZOOM_END + dwell) * 100);
 
-	// Scroll-snap beats: the hero (t=0), the fully-zoomed brain (t=0.5, before it
-	// shrinks), then one per region (centered in its slice, brain settled).
+	// Scroll-snap beats: the hero (t=0), then one per region (centered in its
+	// slice, brain settled). There is deliberately NO beat at the end of the
+	// zoom — you should never come to rest on a bare, contentless brain.
 	$: snapTs = [
 		0,
-		0.5,
-		...Array.from({ length: totalRegions }, (_, k) => 0.5 + ((k + 0.5) / totalRegions) * dwell)
+		...Array.from({ length: totalRegions }, (_, k) => ZOOM_END + ((k + 0.5) / totalRegions) * dwell)
 	];
 
-	// Progress through the dwell (after the zoom completes at t = 0.5) → region.
-	$: browse = Math.min(Math.max((t - 0.5) / dwell, 0), 1);
+	// Progress through the dwell (after the zoom completes) → region.
+	$: browse = Math.min(Math.max((t - ZOOM_END) / dwell, 0), 1);
 	$: regionIndex = totalRegions ? Math.min(Math.floor(browse * totalRegions), totalRegions - 1) : 0;
 	$: active = brainInteractive ? order[regionIndex] : null;
 
-	// As browsing begins the brain shrinks + lifts up to clear the lower half of
-	// the screen for the (info-rich) featured card. `settle` ramps 0→1 over the
-	// first slice of the browse; the pane fades in with it.
-	const SETTLE_FRAC = 0.14; // fraction of the browse spent settling
-	const BROWSE_SCALE = 1.12; // brain scale once settled
-	const LIFT_VH = 15; // how far up the brain lifts (vh)
+	// As browsing begins the brain shrinks and flies to its parked position in
+	// the top-right corner, clearing the screen for the (info-rich) featured
+	// card. `settle` ramps 0→1 over the first slice of the browse; the pane
+	// fades in with it.
+	const SETTLE_FRAC = 0.07; // fraction of the browse spent settling
+	$: isNarrow = innerWidth > 0 && innerWidth < 768;
 	$: settle = Math.min(Math.max(browse / SETTLE_FRAC, 0), 1);
-	$: brainScale = dishScale - settle * (1 + ZOOM - BROWSE_SCALE);
-	$: brainLift = -settle * LIFT_VH;
-	$: paneOpacity = active ? settle : 0;
+
+	// --- Where the brain parks -------------------------------------------
+	// Once settled the brain tucks into the TOP-RIGHT corner, fully clear of the
+	// fixed header, leaving the rest of the screen to the cards. A hand-tuned
+	// translate/scale can't do that reliably: the SVG is `slice`-fitted, so the
+	// brain's on-screen position and size depend on the viewport's aspect ratio.
+	// So we solve for the transform instead.
+	//
+	// BRAIN_* is the brain art's bounding box inside the 4914×3981 hero canvas,
+	// measured from the three segment outlines (plus half a stroke of slack).
+	const CANVAS_W = 4914;
+	const CANVAS_H = 3981;
+	const BRAIN_X = 2295;
+	const BRAIN_Y = 1350;
+	const BRAIN_W = 871;
+	const BRAIN_H = 656;
+	const HEADER_H = 68; // fixed overlay header
+	const PARK_GAP = 14; // breathing room below the header and off the right edge
+
+	// `object-cover` fit of the canvas into the viewport.
+	$: cover = Math.max(innerWidth / CANVAS_W, innerHeight / CANVAS_H);
+	$: artX = (innerWidth - CANVAS_W * cover) / 2;
+	$: artY = (innerHeight - CANVAS_H * cover) / 2;
+	// The brain's untransformed box, in viewport pixels.
+	$: brainW = BRAIN_W * cover;
+	$: brainH = BRAIN_H * cover;
+	$: brainCx = artX + (BRAIN_X + BRAIN_W / 2) * cover;
+	$: brainCy = artY + (BRAIN_Y + BRAIN_H / 2) * cover;
+
+	// Parked size, expressed as a share of the viewport width so it reads the
+	// same on any screen.
+	$: parkScale = brainW ? (innerWidth * (isNarrow ? 0.46 : 0.24)) / brainW : 1;
+	$: parkCx = innerWidth - PARK_GAP - (brainW * parkScale) / 2;
+	$: parkCy = HEADER_H + PARK_GAP + (brainH * parkScale) / 2;
+	// ORIGIN ('61% 43%') as pixels — the layer box is the viewport. Scaling about
+	// it leaves that point fixed, so the translate we need is just the gap
+	// between where the centre lands after scaling and where we want it.
+	$: parkTx = parkCx - (innerWidth * 0.61 + parkScale * (brainCx - innerWidth * 0.61));
+	$: parkTy = parkCy - (innerHeight * 0.43 + parkScale * (brainCy - innerHeight * 0.43));
+
+	// `settle` is derived straight from scrollY, and the whole settle plays out
+	// over ~0.17 viewports — so on a phone (coarse, throttled scroll sampling,
+	// plus the snap/dead-zone scrolls covering that distance in a few frames)
+	// the brain would arrive in two or three big steps: the jerk. Easing a
+	// SMOOTHED copy toward the target each frame decouples the animation from
+	// how finely the browser happens to report scroll. The zoom itself still
+	// tracks raw scroll 1:1 (via dishScale) — only the settle pose is damped.
+	let settleSmooth = 0;
+	let easeRaf = 0;
+	$: ease(settle);
+	function ease(target) {
+		if (typeof window === 'undefined') {
+			settleSmooth = target;
+			return;
+		}
+		cancelAnimationFrame(easeRaf);
+		const step = () => {
+			const d = target - settleSmooth;
+			if (Math.abs(d) < 0.002) {
+				settleSmooth = target;
+				return;
+			}
+			settleSmooth += d * 0.13;
+			easeRaf = requestAnimationFrame(step);
+		};
+		easeRaf = requestAnimationFrame(step);
+	}
+
+	$: brainScale = dishScale + settleSmooth * (parkScale - dishScale);
+	$: brainTx = settleSmooth * parkTx;
+	$: brainTy = settleSmooth * parkTy;
+	$: paneOpacity = active ? settleSmooth : 0;
 
 	$: items = active ? sections[active].items : [];
 	$: n = items.length;
@@ -184,13 +260,15 @@
 			}
 		}, 480);
 	}
-	function stepItem(dir) {
+	function stepItem(dir, byUser = true) {
 		if (!n) return;
+		if (byUser) paused = true;
 		focusAbs += dir;
 		scheduleRebase();
 	}
 	function focusItem(j) {
 		if (!n) return;
+		paused = true; // picking an item is a deliberate stop
 		let d = (((j - focusIndex) % n) + n) % n; // forward distance 0..n-1
 		if (d > n / 2) d -= n; // take the shorter way round
 		focusAbs += d;
@@ -201,6 +279,58 @@
 			event.preventDefault();
 			focusItem(index);
 		}
+	}
+
+	// --- Autoplay ---------------------------------------------------------
+	// The items in a region cycle on their own, so you never have to discover a
+	// control to see what's in there. ANY deliberate interaction (tapping a card,
+	// a dot, an arrow) latches `paused` — the play/pause button is the only way
+	// back. Pausing is sticky across regions: once you've said "let me read",
+	// we don't start yanking cards away again.
+	const AUTO_MS = 4000;
+	let paused = false;
+	let autoTimer;
+	$: canAuto = !!active && settle > 0.99 && !paused;
+	// Passing the deps as args is what registers them with the reactive block.
+	$: schedule(canAuto, focusAbs, n);
+	function schedule(go, _focus, count) {
+		clearTimeout(autoTimer);
+		if (!go || count < 2) return;
+		autoTimer = setTimeout(() => stepItem(1, false), AUTO_MS);
+	}
+	onDestroy(() => {
+		clearTimeout(autoTimer);
+		clearTimeout(rebaseTimer);
+		clearTimeout(idleTimer);
+		// onDestroy also runs during SSR, where rAF doesn't exist.
+		if (typeof window !== 'undefined') cancelAnimationFrame(easeRaf);
+	});
+
+	// --- Dead-zone guard -------------------------------------------------
+	// Between the hero beat (t=0) and the first region beat there's most of a
+	// viewport of pure zoom — too wide for CSS `proximity` snapping to reach
+	// into, so you could come to rest on a huge, contentless brain. (Switching
+	// the page to `mandatory` would fix it but would also trap the tall About /
+	// posts / contact sections below, which have no snap points.)
+	//
+	// So: once scrolling has actually STOPPED (debounced, so momentum and the
+	// corrective scroll itself don't retrigger it), if we've landed in that
+	// window, continue to whichever end is nearer. Everything outside the
+	// window returns immediately, which is also what stops this recursing.
+	let idleTimer;
+	$: t, innerHeight, queueDeadZoneCheck();
+	function queueDeadZoneCheck() {
+		if (typeof window === 'undefined') return;
+		clearTimeout(idleTimer);
+		idleTimer = setTimeout(exitDeadZone, 180);
+	}
+	function exitDeadZone() {
+		const paneIn = ZOOM_END + SETTLE_FRAC * dwell; // pane fully faded in
+		if (t <= 0.04 || t >= paneIn) return; // at the hero, or already reading
+		// Barely moved → let them back to the hero; otherwise carry them forward
+		// onto the first region.
+		const target = t < ZOOM_END * 0.3 ? 0 : ZOOM_END + (0.5 / totalRegions) * dwell;
+		window.scrollTo({ top: target * innerHeight, behavior: 'smooth' });
 	}
 
 	// Skip past the whole pinned brain section straight to About. Snap is turned
@@ -226,12 +356,25 @@
 	const segClass = (key, a) => (a === key ? 'is-active' : a ? 'is-dim' : 'is-idle');
 
 	// Clicking a segment jumps the scroll straight to that region's slice.
-	function goToRegion(key) {
+	function goToRegion(key, behavior = 'smooth') {
 		const k = order.indexOf(key);
 		if (k < 0) return;
 		const b = (k + 0.5) / totalRegions;
-		window.scrollTo({ top: (0.5 + b * dwell) * innerHeight, behavior: 'smooth' });
+		window.scrollTo({ top: (ZOOM_END + b * dwell) * innerHeight, behavior });
 	}
+
+	// Move one region forward/back (wraps). This is what the mobile section bar's
+	// ‹ › arrows drive — on a phone there's no filmstrip to imply "there's more
+	// over here", so the regions need an explicit control, not just scroll.
+	function stepRegion(dir) {
+		const k = (((regionIndex + dir) % totalRegions) + totalRegions) % totalRegions;
+		goToRegion(order[k]);
+	}
+
+	// Each region also gets a real anchor element parked at its scroll beat (see
+	// `.region-anchor` below), so /#projects — the header's Projects link — drops
+	// you straight onto the Projects region of the brain, no JS required.
+	const REGION_ID = { big: 'projects', middle: 'experience', bottom: 'writing' };
 	function onKey(event, key) {
 		if (event.key === 'Enter' || event.key === ' ') {
 			event.preventDefault();
@@ -253,7 +396,7 @@
 </script>
 
 <!-- Bind scroll + viewport size so the transition can be math-driven. -->
-<svelte:window bind:scrollY bind:innerHeight />
+<svelte:window bind:scrollY bind:innerHeight bind:innerWidth />
 
 <!-- ═══════════════════════════════════════════════════════════════════
      INTRO — pinned scroll-zoom + segment browse.
@@ -292,7 +435,7 @@
 		     selected one pops while the others dim. -->
 		<div
 			class="absolute inset-0 z-20 transition-none {brainInteractive ? '' : 'pointer-events-none'}"
-			style="opacity: {brainOpacity}; transform: translateY({brainLift}vh) scale({brainScale}); transform-origin: {ORIGIN};"
+			style="opacity: {brainOpacity}; transform: translate({brainTx}px, {brainTy}px) scale({brainScale}); transform-origin: {ORIGIN};"
 			aria-hidden={!brainInteractive}
 		>
 			<svg
@@ -437,22 +580,58 @@
 			</svg>
 		</div>
 
-		<!-- ── Context pane (top-anchored so the image row / arrows don't bob
-		     as descriptions of different lengths swap in). Scroll picks the
-		     region; items are CLICK-driven. Desktop = a looping filmstrip;
-		     mobile = an accordion stack. -->
+		<!-- ── Context pane. Items cycle on their own until you interact.
+		     Desktop = a looping filmstrip, top-anchored so the card row doesn't
+		     bob as descriptions of different lengths swap in. Mobile = a deck,
+		     BOTTOM-anchored above the skip pill so however tall a card gets it
+		     grows upward and can never collide with it. -->
 		<div
-			class="pointer-events-none absolute inset-x-0 top-[36vh] z-30 overflow-x-clip px-4"
+			class="pointer-events-none absolute inset-x-0 bottom-[4.25rem] z-30 overflow-x-clip px-3 md:bottom-auto md:top-[36vh] md:px-4"
 			style="opacity: {paneOpacity}; transition: opacity 0.3s;"
 			aria-hidden={!active}
 		>
 			{#if active && current}
 				{@const s = sections[active]}
-				<div class="pointer-events-auto mx-auto flex w-full max-w-4xl flex-col items-center">
-					<!-- region stepper: all regions shown, active one lit, the rest
-					     greyed. The › order shows which way to scroll for the next one;
-					     click one to jump straight there. -->
-					<div class="mb-1 flex flex-wrap items-center justify-center gap-x-1 gap-y-1">
+				<div class="pointer-events-auto mx-auto flex w-full max-w-6xl flex-col items-center">
+					<!-- ── MOBILE section bar. On a phone the three regions have no
+					     visible "there's more over here" cue, so they get an explicit
+					     ‹ Region › control. Tapping the label itself opens the region
+					     list below it. -->
+					<div class="mb-3 flex w-full max-w-sm items-center justify-between gap-2 md:hidden">
+						<button
+							type="button"
+							class="nav-arrow"
+							aria-label="Previous section"
+							on:click={() => stepRegion(-1)}
+						>
+							‹
+						</button>
+						<span
+							class="flex flex-1 items-center justify-center gap-2 rounded-full border-[3px] border-charcoal bg-white px-3 py-1.5 shadow-cartoon-sm"
+						>
+							<span class="h-3 w-3 shrink-0 rounded-full ring-2 ring-charcoal" style="background:{s.color};"
+							></span>
+							<span class="text-xs font-extrabold uppercase tracking-widest text-charcoal">
+								{s.label}
+							</span>
+							<span class="text-[0.65rem] font-bold text-charcoal-soft">
+								{regionIndex + 1}/{totalRegions}
+							</span>
+						</span>
+						<button
+							type="button"
+							class="nav-arrow"
+							aria-label="Next section"
+							on:click={() => stepRegion(1)}
+						>
+							›
+						</button>
+					</div>
+
+					<!-- region stepper (desktop): all regions shown, active one lit, the
+					     rest greyed. The › order shows which way to scroll for the next
+					     one; click one to jump straight there. -->
+					<div class="mb-1 hidden flex-wrap items-center justify-center gap-x-1 gap-y-1 md:flex">
 						{#each order as key, i}
 							{@const on = key === active}
 							<button
@@ -474,8 +653,21 @@
 							{/if}
 						{/each}
 					</div>
-					<div class="mb-3 text-center text-xs font-bold text-charcoal-soft">
-						{focusIndex + 1} / {n}
+					<!-- Item counter + autoplay toggle (desktop; mobile gets the dot
+					     row under the deck instead). -->
+					<div class="mb-3 hidden items-center gap-2 md:flex">
+						<span class="text-xs font-bold text-charcoal-soft">{focusIndex + 1} / {n}</span>
+						{#if n > 1}
+							<button
+								type="button"
+								class="play-toggle"
+								aria-label={paused ? 'Play' : 'Pause'}
+								aria-pressed={!paused}
+								on:click={() => (paused = !paused)}
+							>
+								{paused ? '▶' : '❚❚'}
+							</button>
+						{/if}
 					</div>
 
 					<!-- ── DESKTOP: looping filmstrip (‹ arrow · cards · arrow ›) ──
@@ -484,7 +676,7 @@
 					     position with transitions off (via `animate`) so it loops
 					     seamlessly. Cards align at the top so the focused one grows
 					     downward and the arrows stay put. -->
-					<div class="hidden w-full items-start gap-2 lg:flex">
+					<div class="hidden w-full items-start gap-2 md:flex">
 						{#if n > 1}
 							<button
 								type="button"
@@ -567,66 +759,95 @@
 						{/if}
 					</div>
 
-					<!-- ── MOBILE: accordion stack. Every item is listed; the focused
-					     one is expanded, the rest are collapsed rows you can tap. -->
-					<div class="mx-auto flex w-full max-w-xs flex-col gap-2 lg:hidden">
-						{#each items as item, i (i)}
-							{#if i === focusIndex}
+					<!-- ── MOBILE: a deck of cards, cycling on its own. Only the
+					     focused item is readable; the rest sit behind it as peeking
+					     card backs. Tap a back (or a dot) to deal that one to the
+					     front — which also stops the rotation.
+					     Deliberately NO ‹ › arrows here: the only arrows on mobile
+					     are the section bar's, so an arrow always means "different
+					     brain region", never "different card". -->
+					<div class="mx-auto w-full max-w-sm md:hidden">
+						<div class="deck">
+							<!-- Card backs — at most two, so the stack reads as a deck
+							     without turning into a pile. Rendered before the front
+							     card and pushed behind it with z-index. -->
+							{#each Array.from({ length: Math.min(n - 1, 2) }) as _, k (k)}
 								<div
-									class="overflow-hidden rounded-cartoon border-[3px] border-charcoal bg-white text-center shadow-cartoon"
+									class="deck-back"
+									style="--d: {k + 1}; background: {s.color};"
+									role="button"
+									tabindex="0"
+									aria-label="Next item"
+									on:click={() => stepItem(1)}
+									on:keydown={(e) => e.key === 'Enter' && stepItem(1)}
+								></div>
+							{/each}
+
+							<div class="deck-front">
+								<span
+									class="flex aspect-[2/1] w-full items-center justify-center overflow-hidden border-b-[3px] border-charcoal"
+									style="background:{s.color};"
 								>
-									<span
-										class="flex aspect-[16/9] w-full items-center justify-center overflow-hidden border-b-[3px] border-charcoal"
-										style="background:{s.color};"
-									>
-										{#if imgSrc(item.image)}
-											<img
-												src={imgSrc(item.image)}
-												alt={item.title}
-												class="h-full w-full object-cover"
-												loading="lazy"
-											/>
-										{:else}
-											<span class="tv-ph">{item.title}</span>
-										{/if}
-									</span>
-									<div class="p-4">
-										<h3 class="text-lg font-extrabold leading-snug text-charcoal">{item.title}</h3>
-										<p class="mt-1.5 text-sm leading-normal text-charcoal-soft">{item.details}</p>
-										{#if item.tags?.length}
-											<div class="mt-2.5 flex flex-wrap justify-center gap-1.5">
-												{#each item.tags as tag}
-													<span class="tv-tag">{tag}</span>
-												{/each}
-											</div>
-										{/if}
-										{#if item.href}
-											<a
-												href={item.href}
-												target={isExternal(item.href) ? '_blank' : undefined}
-												rel={isExternal(item.href) ? 'noopener noreferrer' : undefined}
-												class="tv-link"
-											>
-												{isExternal(item.href) ? 'Visit' : 'Read'} →
-											</a>
-										{/if}
-									</div>
+									{#if imgSrc(current.image)}
+										<img
+											src={imgSrc(current.image)}
+											alt={current.title}
+											class="h-full w-full object-cover"
+											loading="lazy"
+										/>
+									{:else}
+										<span class="tv-ph">{current.title}</span>
+									{/if}
+								</span>
+								<div class="p-4 text-center">
+									<h3 class="text-lg font-extrabold leading-snug text-charcoal">{current.title}</h3>
+									<p class="mt-1.5 line-clamp-5 text-sm leading-normal text-charcoal-soft">
+										{current.details}
+									</p>
+									{#if current.tags?.length}
+										<div class="mt-2.5 flex flex-wrap justify-center gap-1.5">
+											{#each current.tags as tag}
+												<span class="tv-tag">{tag}</span>
+											{/each}
+										</div>
+									{/if}
+									{#if current.href}
+										<a
+											href={current.href}
+											target={isExternal(current.href) ? '_blank' : undefined}
+											rel={isExternal(current.href) ? 'noopener noreferrer' : undefined}
+											class="tv-link"
+										>
+											{isExternal(current.href) ? 'Visit' : 'Read'} →
+										</a>
+									{/if}
 								</div>
-							{:else}
+							</div>
+						</div>
+
+						{#if n > 1}
+							<div class="mt-3 flex items-center justify-center gap-2">
+								{#each items as item, i (i)}
+									<button
+										type="button"
+										class="dot {i === focusIndex ? 'is-on' : ''}"
+										style={i === focusIndex ? `background:${s.color};` : ''}
+										aria-label="Show {item.title}"
+										aria-current={i === focusIndex}
+										on:click={() => focusItem(i)}
+									></button>
+								{/each}
 								<button
 									type="button"
-									class="flex w-full items-center gap-2.5 rounded-2xl border-[3px] border-charcoal bg-white px-4 py-2.5 text-left shadow-cartoon-sm transition-transform hover:-translate-y-0.5"
-									on:click={() => focusItem(i)}
+									class="play-toggle ml-1"
+									aria-label={paused ? 'Play' : 'Pause'}
+									aria-pressed={!paused}
+									on:click={() => (paused = !paused)}
 								>
-									<span
-										class="h-3 w-3 shrink-0 rounded-full ring-2 ring-charcoal"
-										style="background:{s.color};"
-									></span>
-									<span class="flex-1 text-sm font-extrabold text-charcoal">{item.title}</span>
-									<span class="text-lg font-bold leading-none text-charcoal-soft">+</span>
+									{paused ? '▶' : '❚❚'}
 								</button>
-							{/if}
-						{/each}
+							</div>
+						{/if}
 					</div>
 				</div>
 			{/if}
@@ -636,7 +857,7 @@
 		     bottom-right, fades in with the brain. -->
 		<button
 			type="button"
-			class="pointer-events-auto absolute bottom-6 right-4 z-40 inline-flex items-center gap-1.5 rounded-full border-[3px] border-charcoal bg-white px-4 py-2 text-sm font-extrabold text-charcoal shadow-cartoon-sm hover:-translate-y-0.5 sm:right-6 {brainInteractive
+			class="pointer-events-auto absolute bottom-3 right-3 z-40 inline-flex items-center gap-1.5 rounded-full border-[3px] border-charcoal bg-white px-3 py-1.5 text-xs font-extrabold text-charcoal shadow-cartoon-sm hover:-translate-y-0.5 sm:bottom-6 sm:right-6 sm:px-4 sm:py-2 sm:text-sm {brainInteractive
 				? ''
 				: 'pointer-events-none'}"
 			style="opacity: {brainOpacity}; transition: opacity 0.3s ease, transform 0.2s ease;"
@@ -657,6 +878,17 @@
 		<div
 			class="snap-pt {i > 0 ? 'snap-stop' : ''}"
 			style="top: {st * 100}vh;"
+			aria-hidden="true"
+		></div>
+	{/each}
+
+	<!-- Hash anchors — one per region, parked at that region's scroll beat, so
+	     /#projects (and friends) land directly on it. -->
+	{#each order as key, k (key)}
+		<div
+			id={REGION_ID[key]}
+			class="region-anchor"
+			style="top: {(ZOOM_END + ((k + 0.5) / totalRegions) * dwell) * 100}vh;"
 			aria-hidden="true"
 		></div>
 	{/each}
@@ -762,6 +994,14 @@
 	.snap-stop {
 		scroll-snap-stop: always;
 	}
+	/* Invisible link targets at each region's beat (see REGION_ID). */
+	.region-anchor {
+		position: absolute;
+		left: 0;
+		width: 1px;
+		height: 1px;
+		pointer-events: none;
+	}
 
 	/* Brain segments. NO transform-box/transform-origin here — the <g>s carry
 	   the art's matrix() positioning transform and those props would break it.
@@ -799,6 +1039,78 @@
 		opacity: 1 !important;
 		animation: none;
 		filter: drop-shadow(0 8px 12px rgba(45, 42, 50, 0.45));
+	}
+
+	/* ── Mobile deck ────────────────────────────────────────────────────
+	   The focused item is a normal-flow card; the others are absolutely
+	   positioned "card backs" behind it, nudged down and narrowed so the
+	   stack reads as a deck. The wrapper's bottom padding is exactly the
+	   room the deepest back peeks into, so nothing overflows. */
+	.deck {
+		position: relative;
+		padding-bottom: 22px;
+	}
+	.deck-back {
+		position: absolute;
+		inset: 0 0 22px 0;
+		z-index: 1;
+		cursor: pointer;
+		border: 3px solid var(--color-charcoal);
+		border-radius: var(--radius-cartoon, 1.1rem);
+		box-shadow: var(--shadow-cartoon-sm);
+		transform: translateY(calc(var(--d) * 11px)) scaleX(calc(1 - var(--d) * 0.05));
+		opacity: calc(1 - var(--d) * 0.25);
+		transition:
+			transform 0.35s cubic-bezier(0.175, 0.885, 0.32, 1.275),
+			opacity 0.35s ease;
+	}
+	.deck-back:nth-of-type(2) {
+		z-index: 0;
+	}
+	.deck-front {
+		position: relative;
+		z-index: 2;
+		overflow: hidden;
+		border: 3px solid var(--color-charcoal);
+		border-radius: var(--radius-cartoon, 1.1rem);
+		background: white;
+		box-shadow: var(--shadow-cartoon);
+	}
+
+	/* Item dots — the mobile stand-in for the desktop filmstrip: they show how
+	   many cards are in this region and which one you're on. Tapping one both
+	   jumps to it and stops the rotation. */
+	.dot {
+		width: 0.6rem;
+		height: 0.6rem;
+		border: 2px solid var(--color-charcoal);
+		border-radius: 9999px;
+		background: transparent;
+		opacity: 0.45;
+		transition:
+			opacity 0.25s ease,
+			transform 0.25s ease;
+	}
+	.dot.is-on {
+		opacity: 1;
+		transform: scale(1.3);
+	}
+
+	/* Autoplay play/pause. Small and quiet — it's an escape hatch, not a
+	   primary control. */
+	.play-toggle {
+		display: inline-flex;
+		height: 1.15rem;
+		min-width: 1.15rem;
+		align-items: center;
+		justify-content: center;
+		padding: 0 0.25rem;
+		border: 2px solid var(--color-charcoal);
+		border-radius: 9999px;
+		background: white;
+		font-size: 0.5rem;
+		line-height: 1;
+		color: var(--color-charcoal);
 	}
 
 	/* ── Filmstrip cards (cartoon "TV" screens) ─────────────────────── */

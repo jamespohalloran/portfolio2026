@@ -8,16 +8,22 @@
 	// Home link; a `cta` flag marks Contact so it renders as the button.
 	const nav = [
 		{ label: 'Home', href: '/', home: true },
-		{ label: 'Projects', href: '/projects' },
+		// Projects lives inside the home page's brain — this drops you onto that
+		// region rather than a separate route.
+		{ label: 'Projects', href: '/#projects' },
 		{ label: 'About', href: '/about' },
 		{ label: 'Blog', href: '/blog' },
 		{ label: 'Contact', href: '/contact', cta: true }
 	];
 
-	// Active-path test. Home matches only exactly; sections match their prefix
-	// so /projects/foo still lights up the Projects link.
-	$: isActive = (href) =>
-		href === '/' ? $page.url.pathname === '/' : $page.url.pathname.startsWith(href);
+	// Active-path test. Home matches only exactly (and only with no hash, so the
+	// in-page #projects link owns that state); hash links match the hash;
+	// sections match their prefix so /projects/foo still lights up Projects.
+	$: isActive = (href) => {
+		if (href.startsWith('/#')) return $page.url.pathname === '/' && $page.url.hash === href.slice(1);
+		if (href === '/') return $page.url.pathname === '/' && !$page.url.hash;
+		return $page.url.pathname.startsWith(href);
+	};
 
 	// The home hero is full-bleed under the (overlay) header, so it needs no top
 	// clearance. Every other page does, to sit below the fixed header.
