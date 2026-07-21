@@ -153,20 +153,48 @@
 	$: brainLift = -settle * LIFT_VH;
 	$: paneOpacity = active ? settle : 0;
 
-	// The focused item is click-driven; it resets to the first when the region
-	// changes.
-	let itemIndex = 0;
-	$: active, (itemIndex = 0);
 	$: items = active ? sections[active].items : [];
 	$: n = items.length;
-	$: focusIndex = n ? (((itemIndex % n) + n) % n) : 0;
+
+	// The focused item is click-driven and LOOPS. `focusAbs` is an unbounded
+	// position; the shown item is focusAbs mod n. The desktop filmstrip renders
+	// three copies of the items so there's always something to the left AND
+	// right; after a move that crosses the ends we rebase focusAbs back into
+	// [0, n) with the track transition off, so the wrap is seamless.
+	let focusAbs = 0;
+	let animate = true;
+	let rebaseTimer;
+	$: active, resetFocus();
+	function resetFocus() {
+		focusAbs = 0;
+		animate = true;
+	}
+	$: focusIndex = n ? (((focusAbs % n) + n) % n) : 0;
 	$: current = n ? items[focusIndex] : null;
 
-	function focusItem(i) {
-		itemIndex = i;
+	function scheduleRebase() {
+		clearTimeout(rebaseTimer);
+		rebaseTimer = setTimeout(() => {
+			if (!n) return;
+			const wrapped = ((focusAbs % n) + n) % n;
+			if (wrapped !== focusAbs) {
+				animate = false;
+				focusAbs = wrapped;
+				requestAnimationFrame(() => requestAnimationFrame(() => (animate = true)));
+			}
+		}, 480);
 	}
 	function stepItem(dir) {
-		if (n) itemIndex = (focusIndex + dir + n) % n;
+		if (!n) return;
+		focusAbs += dir;
+		scheduleRebase();
+	}
+	function focusItem(j) {
+		if (!n) return;
+		let d = (((j - focusIndex) % n) + n) % n; // forward distance 0..n-1
+		if (d > n / 2) d -= n; // take the shorter way round
+		focusAbs += d;
+		scheduleRebase();
 	}
 	function cardKey(event, index) {
 		if (event.key === 'Enter' || event.key === ' ') {
@@ -391,12 +419,12 @@
 			</svg>
 		</div>
 
-		<!-- ── Context pane — filmstrip (fixed size, not zoomed) ─────────
-		     Scroll picks the region; the items here are CLICK-driven. Several
-		     cards show at once (focused one centered/larger); arrows or clicking
-		     a card change the focus. The focused item's text sits in its own box. -->
+		<!-- ── Context pane (top-anchored so the image row / arrows don't bob
+		     as descriptions of different lengths swap in). Scroll picks the
+		     region; items are CLICK-driven. Desktop = a looping filmstrip;
+		     mobile = an accordion stack. -->
 		<div
-			class="pointer-events-none absolute inset-x-0 bottom-0 z-30 px-4 pb-6"
+			class="pointer-events-none absolute inset-x-0 top-[36vh] z-30 overflow-x-clip px-4"
 			style="opacity: {paneOpacity}; transition: opacity 0.3s;"
 			aria-hidden={!active}
 		>
@@ -404,8 +432,8 @@
 				{@const s = sections[active]}
 				<div class="pointer-events-auto mx-auto flex w-full max-w-4xl flex-col items-center">
 					<!-- region stepper: all regions shown, active one lit, the rest
-					     greyed. The order (with › separators) shows which way to scroll
-					     for the next one; click one to jump straight there. -->
+					     greyed. The › order shows which way to scroll for the next one;
+					     click one to jump straight there. -->
 					<div class="mb-1 flex flex-wrap items-center justify-center gap-x-1 gap-y-1">
 						{#each order as key, i}
 							{@const on = key === active}
@@ -432,9 +460,13 @@
 						{focusIndex + 1} / {n}
 					</div>
 
-					<!-- filmstrip row: ‹ arrow · cards · arrow ›. Cards align at the
-					     top so the focused one can grow downward with its text. -->
-					<div class="flex w-full items-start gap-2">
+					<!-- ── DESKTOP: looping filmstrip (‹ arrow · cards · arrow ›) ──
+					     Three copies of the items are rendered so there's always
+					     something to the left AND right; after a wrap we rebase the
+					     position with transitions off (via `animate`) so it loops
+					     seamlessly. Cards align at the top so the focused one grows
+					     downward and the arrows stay put. -->
+					<div class="hidden w-full items-start gap-2 lg:flex">
 						{#if n > 1}
 							<button
 								type="button"
@@ -446,61 +478,66 @@
 							</button>
 						{/if}
 
-						<div class="relative flex-1 overflow-hidden pb-2">
+						<div class="relative min-w-0 flex-1 overflow-hidden pb-2">
 							<div
 								class="flex items-start"
-								style="position: relative; left: 50%; gap: 18px; transform: translateX(calc(-1 * {focusIndex} * {STRIDE}px - {FOCUS_CARD /
-									2}px)); transition: transform 0.45s cubic-bezier(0.175, 0.885, 0.32, 1.275);"
+								style="position: relative; left: 50%; gap: 18px; transform: translateX(calc(-1 * {n +
+									focusAbs} * {STRIDE}px - {FOCUS_CARD / 2}px)); {animate
+									? 'transition: transform 0.45s cubic-bezier(0.175, 0.885, 0.32, 1.275);'
+									: ''}"
 							>
-								{#each items as item, index (index)}
-									{@const focused = index === focusIndex}
-									<!-- One card element for every item so its width animates when it
-									     becomes / stops being the focused (wider + taller) card. -->
-									<div
-										class="tv {focused ? 'tv-focus' : 'tv-side'}"
-										role={focused ? undefined : 'button'}
-										tabindex={focused ? undefined : 0}
-										aria-label={focused ? undefined : `Show ${item.title}`}
-										on:click={() => focusItem(index)}
-										on:keydown={(e) => cardKey(e, index)}
-									>
-										<span class="{focused ? 'tv-fscreen' : 'tv-screen'}" style="background:{s.color};">
-											{#if imgSrc(item.image)}
-												<img src={imgSrc(item.image)} alt={item.title} loading="lazy" />
-											{:else}
-												<span class="tv-ph">{item.title}</span>
-											{/if}
-										</span>
-										{#if focused}
-											<span class="tv-body">
-												<span class="block text-lg font-extrabold leading-snug text-charcoal">
-													{item.title}
-												</span>
-												<span class="mt-1.5 block text-sm leading-normal text-charcoal-soft">
-													{item.details}
-												</span>
-												{#if item.tags?.length}
-													<span class="mt-2.5 flex flex-wrap justify-center gap-1.5">
-														{#each item.tags as tag}
-															<span class="tv-tag">{tag}</span>
-														{/each}
-													</span>
-												{/if}
-												{#if item.href}
-													<a
-														href={item.href}
-														target={isExternal(item.href) ? '_blank' : undefined}
-														rel={isExternal(item.href) ? 'noopener noreferrer' : undefined}
-														class="tv-link"
-													>
-														{isExternal(item.href) ? 'Visit' : 'Read'} →
-													</a>
+								{#each [0, 1, 2] as copy (copy)}
+									{#each items as item, i (copy + '-' + i)}
+										{@const focused = copy * n + i === n + focusAbs}
+										<div
+											class="tv {focused ? 'tv-focus' : 'tv-side'} {animate ? '' : 'no-tr'}"
+											role={focused ? undefined : 'button'}
+											tabindex={focused ? undefined : 0}
+											aria-label={focused ? undefined : `Show ${item.title}`}
+											on:click={() => focusItem(i)}
+											on:keydown={(e) => cardKey(e, i)}
+										>
+											<span
+												class="{focused ? 'tv-fscreen' : 'tv-screen'}"
+												style="background:{s.color};"
+											>
+												{#if imgSrc(item.image)}
+													<img src={imgSrc(item.image)} alt={item.title} loading="lazy" />
+												{:else}
+													<span class="tv-ph">{item.title}</span>
 												{/if}
 											</span>
-										{:else}
-											<span class="tv-foot"></span>
-										{/if}
-									</div>
+											{#if focused}
+												<span class="tv-body">
+													<span class="block text-lg font-extrabold leading-snug text-charcoal">
+														{item.title}
+													</span>
+													<span class="mt-1.5 block text-sm leading-normal text-charcoal-soft">
+														{item.details}
+													</span>
+													{#if item.tags?.length}
+														<span class="mt-2.5 flex flex-wrap justify-center gap-1.5">
+															{#each item.tags as tag}
+																<span class="tv-tag">{tag}</span>
+															{/each}
+														</span>
+													{/if}
+													{#if item.href}
+														<a
+															href={item.href}
+															target={isExternal(item.href) ? '_blank' : undefined}
+															rel={isExternal(item.href) ? 'noopener noreferrer' : undefined}
+															class="tv-link"
+														>
+															{isExternal(item.href) ? 'Visit' : 'Read'} →
+														</a>
+													{/if}
+												</span>
+											{:else}
+												<span class="tv-foot"></span>
+											{/if}
+										</div>
+									{/each}
 								{/each}
 							</div>
 						</div>
@@ -510,6 +547,68 @@
 								›
 							</button>
 						{/if}
+					</div>
+
+					<!-- ── MOBILE: accordion stack. Every item is listed; the focused
+					     one is expanded, the rest are collapsed rows you can tap. -->
+					<div class="mx-auto flex w-full max-w-xs flex-col gap-2 lg:hidden">
+						{#each items as item, i (i)}
+							{#if i === focusIndex}
+								<div
+									class="overflow-hidden rounded-cartoon border-[3px] border-charcoal bg-white text-center shadow-cartoon"
+								>
+									<span
+										class="flex aspect-[16/9] w-full items-center justify-center overflow-hidden border-b-[3px] border-charcoal"
+										style="background:{s.color};"
+									>
+										{#if imgSrc(item.image)}
+											<img
+												src={imgSrc(item.image)}
+												alt={item.title}
+												class="h-full w-full object-cover"
+												loading="lazy"
+											/>
+										{:else}
+											<span class="tv-ph">{item.title}</span>
+										{/if}
+									</span>
+									<div class="p-4">
+										<h3 class="text-lg font-extrabold leading-snug text-charcoal">{item.title}</h3>
+										<p class="mt-1.5 text-sm leading-normal text-charcoal-soft">{item.details}</p>
+										{#if item.tags?.length}
+											<div class="mt-2.5 flex flex-wrap justify-center gap-1.5">
+												{#each item.tags as tag}
+													<span class="tv-tag">{tag}</span>
+												{/each}
+											</div>
+										{/if}
+										{#if item.href}
+											<a
+												href={item.href}
+												target={isExternal(item.href) ? '_blank' : undefined}
+												rel={isExternal(item.href) ? 'noopener noreferrer' : undefined}
+												class="tv-link"
+											>
+												{isExternal(item.href) ? 'Visit' : 'Read'} →
+											</a>
+										{/if}
+									</div>
+								</div>
+							{:else}
+								<button
+									type="button"
+									class="flex w-full items-center gap-2.5 rounded-2xl border-[3px] border-charcoal bg-white px-4 py-2.5 text-left shadow-cartoon-sm transition-transform hover:-translate-y-0.5"
+									on:click={() => focusItem(i)}
+								>
+									<span
+										class="h-3 w-3 shrink-0 rounded-full ring-2 ring-charcoal"
+										style="background:{s.color};"
+									></span>
+									<span class="flex-1 text-sm font-extrabold text-charcoal">{item.title}</span>
+									<span class="text-lg font-bold leading-none text-charcoal-soft">+</span>
+								</button>
+							{/if}
+						{/each}
 					</div>
 				</div>
 			{/if}
@@ -608,6 +707,7 @@
 	   only applies while this component is mounted. */
 	:global(html) {
 		scroll-snap-type: y proximity;
+		overflow-x: hidden;
 	}
 	/* Invisible snap targets positioned down the intro at each beat's offset. */
 	.snap-pt {
@@ -672,6 +772,11 @@
 			opacity 0.35s ease,
 			flex-basis 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275),
 			width 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+	}
+	/* During the seamless-loop rebase, kill transitions so the teleport is
+	   instant/invisible (paired with `animate` on the track). */
+	.tv.no-tr {
+		transition: none !important;
 	}
 	/* Neighbours: compact TVs, clearly visible (not faded out) so several read
 	   at once. */
