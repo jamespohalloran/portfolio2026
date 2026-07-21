@@ -8,3 +8,6 @@ node_modules
 .DS_Store
 .vercel
 vite.config.js.timestamp-*
+
+# Affinity Designer lock files
+*.af~lock~
