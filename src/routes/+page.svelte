@@ -135,9 +135,11 @@
 	const order = ['big', 'middle', 'bottom'];
 	$: totalRegions = order.length;
 
-	// Viewports of scroll per region — short enough that the whole brain section
-	// reads quickly; the pin height (introVH) is derived from it.
-	const PER_REGION = 0.8;
+	// Viewports of scroll per region. Half a viewport is about one comfortable
+	// flick, so each flick lands on the next region — and `scroll-snap-stop`
+	// below guarantees it can't overshoot into the one after. The pin height
+	// (introVH) is derived from this.
+	const PER_REGION = 0.5;
 	$: dwell = Math.max(totalRegions * PER_REGION, 0.5);
 	$: introVH = Math.round((1 + ZOOM_END + dwell) * 100);
 
@@ -263,45 +265,111 @@
 		if (typeof window !== 'undefined') cancelAnimationFrame(easeRaf);
 	});
 
-	// --- Dead-zone guard -------------------------------------------------
-	// Between the hero beat (t=0) and the first region beat there's most of a
-	// viewport of pure zoom — too wide for CSS `proximity` snapping to reach
-	// into, so you could come to rest on a huge, contentless brain. (Switching
-	// the page to `mandatory` would fix it but would also trap the tall About /
-	// posts / contact sections below, which have no snap points.)
+	// --- Scroll-idle guards ----------------------------------------------
+	// Two invariants enforced once scrolling has actually STOPPED (debounced, so
+	// momentum and the corrective scrolls themselves don't retrigger them):
 	//
-	// So: once scrolling has actually STOPPED (debounced, so momentum and the
-	// corrective scroll itself don't retrigger it), if we've landed in that
-	// window, continue to whichever end is nearer. Everything outside the
-	// window returns immediately, which is also what stops this recursing.
-	let idleTimer;
-	$: t, innerHeight, queueDeadZoneCheck();
-	function queueDeadZoneCheck() {
-		if (typeof window === 'undefined') return;
-		clearTimeout(idleTimer);
-		idleTimer = setTimeout(exitDeadZone, 180);
-	}
-	function exitDeadZone() {
-		const paneIn = ZOOM_END + SETTLE_FRAC * dwell; // pane fully faded in
-		if (t <= 0.04 || t >= paneIn) return; // at the hero, or already reading
-		// Barely moved → let them back to the hero; otherwise carry them forward
-		// onto the first region.
-		const target = t < ZOOM_END * 0.3 ? 0 : ZOOM_END + (0.5 / totalRegions) * dwell;
-		window.scrollTo({ top: target * innerHeight, behavior: 'smooth' });
+	//   1. You never come to rest mid-zoom, on a huge contentless brain. The
+	//      stretch between the hero beat and the first region is most of a
+	//      viewport of pure zoom with nothing to read.
+	//   2. One gesture never carries you through more than one beat. Mandatory
+	//      snapping + `scroll-snap-stop: always` is supposed to guarantee this,
+	//      but a hard fling from the very top can still clear the first region
+	//      in some browsers — so this backstops it.
+	//
+	// "Beats" are the snap targets in order: hero, each region, then the exit.
+	// Deliberate jumps (clicking a lobe, a chip, an arrow, the skip pill) set
+	// `bypassGuard` — those are *meant* to cross several beats at once.
+	$: beatTs = [...snapTs, exitT];
+	$: beatIndex = t > exitT + 0.05 ? -1 : nearestBeat(t);
+	function nearestBeat(pos) {
+		let best = 0;
+		for (let i = 1; i < beatTs.length; i++) {
+			if (Math.abs(beatTs[i] - pos) < Math.abs(beatTs[best] - pos)) best = i;
+		}
+		return best;
 	}
 
-	// Skip past the whole pinned brain section straight to About. Snap is turned
-	// off for the duration so the region `scroll-snap-stop`s don't catch the
-	// jump partway, then restored once the smooth scroll settles.
+	let idleTimer;
+	// null = "not established yet" — the first idle just records where we are.
+	// That's what makes a deep link like /#writing work: the browser's native
+	// anchor jump lands several beats in, and must not be walked back.
+	let restBeat = null;
+	let bypassGuard = false;
+	$: t, innerHeight, queueIdleCheck();
+	function queueIdleCheck() {
+		if (typeof window === 'undefined') return;
+		clearTimeout(idleTimer);
+		idleTimer = setTimeout(onScrollIdle, 180);
+	}
+	function scrollToBeat(k) {
+		window.scrollTo({ top: beatTs[k] * innerHeight, behavior: 'smooth' });
+	}
+	function onScrollIdle() {
+		// Outside the pin entirely — nothing to police, and re-entering from
+		// below should count as a fresh gesture.
+		if (beatIndex < 0) {
+			restBeat = -1;
+			bypassGuard = false;
+			return;
+		}
+		if (bypassGuard) {
+			bypassGuard = false;
+			restBeat = beatIndex;
+			return;
+		}
+
+		// (1) Parked mid-zoom → continue to whichever end is nearer.
+		const paneIn = ZOOM_END + SETTLE_FRAC * dwell;
+		if (t > 0.04 && t < paneIn) {
+			scrollToBeat(t < ZOOM_END * 0.3 ? 0 : 1);
+			return;
+		}
+
+		// (2) Overshot by more than one beat → walk it back to exactly one.
+		// `restBeat` is left alone so the next idle re-checks the corrected spot.
+		// (`null >= 0` is true in JS, so test for null explicitly.)
+		if (restBeat !== null && restBeat >= 0 && Math.abs(beatIndex - restBeat) > 1) {
+			scrollToBeat(restBeat + Math.sign(beatIndex - restBeat));
+			return;
+		}
+		restBeat = beatIndex;
+	}
+
+	// --- Snap mode --------------------------------------------------------
+	// One swipe should never carry you through more than one region. That's what
+	// `scroll-snap-stop: always` is for, but browsers only honour it reliably
+	// under MANDATORY snapping — with `proximity` a hard fling sails straight
+	// past. So we run mandatory for the length of the pin and drop back to
+	// proximity once past it, since the tall About/posts/contact sections below
+	// have no snap points and mandatory would fight you the whole way down.
+	//
+	// `exitT` (the beat where the sticky releases) is a real snap target, so
+	// mandatory always has somewhere to let you go — without it, the last region
+	// would be a dead end you couldn't scroll out of.
+	$: exitT = introVH / 100 - 1;
+	let snapSuspended = false;
+	$: applySnapMode(t < exitT - 0.05, snapSuspended);
+	function applySnapMode(inPin, suspended) {
+		if (typeof document === 'undefined') return;
+		document.documentElement.style.scrollSnapType = suspended
+			? 'none'
+			: inPin
+				? 'y mandatory'
+				: 'y proximity';
+	}
+
+	// Skip past the whole pinned brain section straight to About. Snap is
+	// suspended for the duration so the region `scroll-snap-stop`s don't catch
+	// the jump partway, then restored once the smooth scroll settles.
 	function skipIntro() {
 		const el = document.getElementById('about');
 		if (!el) return;
-		const html = document.documentElement;
-		const prev = html.style.scrollSnapType;
-		html.style.scrollSnapType = 'none';
+		bypassGuard = true;
+		snapSuspended = true;
 		el.scrollIntoView({ behavior: 'smooth', block: 'start' });
 		const restore = () => {
-			html.style.scrollSnapType = prev;
+			snapSuspended = false;
 			window.removeEventListener('scrollend', restore);
 		};
 		window.addEventListener('scrollend', restore);
@@ -316,6 +384,7 @@
 	function goToRegion(key, behavior = 'smooth') {
 		const k = order.indexOf(key);
 		if (k < 0) return;
+		bypassGuard = true; // an explicit jump may legitimately cross several beats
 		const b = (k + 0.5) / totalRegions;
 		window.scrollTo({ top: (ZOOM_END + b * dwell) * innerHeight, behavior });
 	}
@@ -331,7 +400,10 @@
 	function stepRegion(dir) {
 		const k = regionIndex + dir;
 		if (k >= totalRegions) return skipIntro();
-		if (k < 0) return window.scrollTo({ top: 0, behavior: 'smooth' });
+		if (k < 0) {
+			bypassGuard = true;
+			return window.scrollTo({ top: 0, behavior: 'smooth' });
+		}
 		goToRegion(order[k]);
 	}
 
@@ -598,7 +670,18 @@
 										aria-label="Previous section"
 										on:click={() => stepRegion(-1)}
 									>
-										‹
+										<svg
+											class="nav-ico"
+											viewBox="0 0 24 24"
+											fill="none"
+											stroke="currentColor"
+											stroke-width="3.2"
+											stroke-linecap="round"
+											stroke-linejoin="round"
+											aria-hidden="true"
+										>
+											<path d="M15 4 L7 12 L15 20" />
+										</svg>
 									</button>
 									<span
 										class="flex flex-1 items-center justify-center gap-2 rounded-full border-[3px] border-charcoal bg-white px-3 py-1.5 shadow-cartoon-sm"
@@ -622,7 +705,21 @@
 										aria-label={atLastRegion ? 'Continue to about me' : 'Next section'}
 										on:click={() => stepRegion(1)}
 									>
-										{atLastRegion ? '↓' : '›'}
+										<!-- Geometric chevrons, not text glyphs: ‹ › sit on the
+										     baseline, so flex-centring their line box still leaves
+										     them looking high inside the circle. -->
+										<svg
+											class="nav-ico"
+											viewBox="0 0 24 24"
+											fill="none"
+											stroke="currentColor"
+											stroke-width="3.2"
+											stroke-linecap="round"
+											stroke-linejoin="round"
+											aria-hidden="true"
+										>
+											<path d={atLastRegion ? 'M4 9 L12 17 L20 9' : 'M9 4 L17 12 L9 20'} />
+										</svg>
 									</button>
 								</div>
 
@@ -733,6 +830,9 @@
 			aria-hidden="true"
 		></div>
 	{/each}
+	<!-- The way out. Deliberately NOT `snap-stop`, so a firm flick off the last
+	     region can carry straight on into About instead of being caught here. -->
+	<div class="snap-pt" style="top: {exitT * 100}vh;" aria-hidden="true"></div>
 
 	<!-- Hash anchors — one per region, parked at that region's scroll beat, so
 	     /#projects (and friends) land directly on it. -->
@@ -963,6 +1063,10 @@
 		color: var(--color-charcoal);
 		box-shadow: var(--shadow-cartoon-sm);
 		transition: transform 0.2s ease;
+	}
+	.nav-ico {
+		width: 1.05rem;
+		height: 1.05rem;
 	}
 	.nav-arrow:hover {
 		transform: translateY(-2px);
