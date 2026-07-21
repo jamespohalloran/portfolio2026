@@ -403,16 +403,33 @@
 			{#if active && current}
 				{@const s = sections[active]}
 				<div class="pointer-events-auto mx-auto flex w-full max-w-4xl flex-col items-center">
-					<!-- header -->
-					<div class="mb-3 flex items-center gap-2">
-						<span
-							class="h-3.5 w-3.5 rounded-full ring-2 ring-charcoal"
-							style="background:{s.color};"
-						></span>
-						<span class="text-xs font-bold uppercase tracking-widest text-charcoal-soft">
-							{s.label}
-						</span>
-						<span class="text-xs font-bold text-charcoal-soft">· {focusIndex + 1}/{n}</span>
+					<!-- region stepper: all regions shown, active one lit, the rest
+					     greyed. The order (with › separators) shows which way to scroll
+					     for the next one; click one to jump straight there. -->
+					<div class="mb-1 flex flex-wrap items-center justify-center gap-x-1 gap-y-1">
+						{#each order as key, i}
+							{@const on = key === active}
+							<button
+								type="button"
+								class="flex items-center gap-1.5 rounded-full px-2 py-1 text-xs font-bold uppercase tracking-widest transition-colors {on
+									? 'text-charcoal'
+									: 'text-charcoal/35 hover:text-charcoal/60'}"
+								aria-current={on}
+								on:click={() => goToRegion(key)}
+							>
+								<span
+									class="h-2.5 w-2.5 rounded-full ring-2 {on ? 'ring-charcoal' : 'ring-charcoal/30'}"
+									style="background:{on ? sections[key].color : 'transparent'};"
+								></span>
+								{sections[key].label}
+							</button>
+							{#if i < order.length - 1}
+								<span class="text-sm text-charcoal/25" aria-hidden="true">›</span>
+							{/if}
+						{/each}
+					</div>
+					<div class="mb-3 text-center text-xs font-bold text-charcoal-soft">
+						{focusIndex + 1} / {n}
 					</div>
 
 					<!-- filmstrip row: ‹ arrow · cards · arrow ›. Cards align at the
