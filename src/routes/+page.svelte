@@ -141,7 +141,11 @@
 	// (introVH) is derived from this.
 	const PER_REGION = 0.5;
 	$: dwell = Math.max(totalRegions * PER_REGION, 0.5);
-	$: introVH = Math.round((1 + ZOOM_END + dwell) * 100);
+	// Region beats sit at slice CENTRES, so a full-length pin leaves half a slice
+	// of dead tail after the last one — scroll that changes nothing but still
+	// holds you in the pinned section. Trim most of it: the pin now releases
+	// shortly after the Writing beat.
+	$: introVH = Math.round((1 + ZOOM_END + dwell * 0.9) * 100);
 
 	// Scroll-snap beats: the hero (t=0), then one per region (centered in its
 	// slice, brain settled). There is deliberately NO beat at the end of the
@@ -182,10 +186,21 @@
 	const HEADER_H = 68; // fixed overlay header
 	const PARK_GAP = 14; // breathing room below the header and off the right edge
 
-	// `object-cover` fit of the canvas into the viewport.
-	$: cover = Math.max(innerWidth / CANVAS_W, innerHeight / CANVAS_H);
-	$: artX = (innerWidth - CANVAS_W * cover) / 2;
-	$: artY = (innerHeight - CANVAS_H * cover) / 2;
+	// Measured size of the brain layer itself — NOT window.innerWidth/Height.
+	// The layer is `h-screen`, i.e. CSS 100vh, which on mobile is the LARGE
+	// viewport and stays put; `window.innerHeight` is the visual viewport and
+	// shrinks/grows as the URL bar hides. Driving the park geometry off the
+	// window meant the target moved the moment the bar collapsed — the brain
+	// "snapping" at the end of its shrink.
+	let layerW = 0;
+	let layerH = 0;
+	$: boxW = layerW || innerWidth;
+	$: boxH = layerH || innerHeight;
+
+	// `object-cover` fit of the canvas into that box.
+	$: cover = Math.max(boxW / CANVAS_W, boxH / CANVAS_H);
+	$: artX = (boxW - CANVAS_W * cover) / 2;
+	$: artY = (boxH - CANVAS_H * cover) / 2;
 	// The brain's untransformed box, in viewport pixels.
 	$: brainW = BRAIN_W * cover;
 	$: brainH = BRAIN_H * cover;
@@ -194,14 +209,14 @@
 
 	// Parked size, expressed as a share of the viewport width so it reads the
 	// same on any screen.
-	$: parkScale = brainW ? (innerWidth * (isNarrow ? 0.3 : 0.24)) / brainW : 1;
-	$: parkCx = innerWidth - PARK_GAP - (brainW * parkScale) / 2;
+	$: parkScale = brainW ? (boxW * (isNarrow ? 0.3 : 0.24)) / brainW : 1;
+	$: parkCx = boxW - PARK_GAP - (brainW * parkScale) / 2;
 	$: parkCy = HEADER_H + PARK_GAP + (brainH * parkScale) / 2;
 	// ORIGIN ('61% 43%') as pixels — the layer box is the viewport. Scaling about
 	// it leaves that point fixed, so the translate we need is just the gap
 	// between where the centre lands after scaling and where we want it.
-	$: parkTx = parkCx - (innerWidth * 0.61 + parkScale * (brainCx - innerWidth * 0.61));
-	$: parkTy = parkCy - (innerHeight * 0.43 + parkScale * (brainCy - innerHeight * 0.43));
+	$: parkTx = parkCx - (boxW * 0.61 + parkScale * (brainCx - boxW * 0.61));
+	$: parkTy = parkCy - (boxH * 0.43 + parkScale * (brainCy - boxH * 0.43));
 
 	// `settle` is derived straight from scrollY, and the whole settle plays out
 	// over ~0.17 viewports — so on a phone (coarse, throttled scroll sampling,
@@ -349,14 +364,21 @@
 	// sections have no snap points, and mandatory there fights you the whole way
 	// down. Ending the mandatory window just past the LAST region beat is what
 	// makes leaving the brain section feel like a normal scroll again.
-	$: mandatoryEnd = snapTs[snapTs.length - 1] + 0.15;
+	// Only a hair past the last beat: any wider and leaving Writing means fighting
+	// mandatory snapping for the whole margin, which reads as heavy snap-back.
+	$: mandatoryEnd = snapTs[snapTs.length - 1] + 0.01;
 
 	let snapSuspended = false;
 	let snapModeNow = '';
 	$: applySnapMode(t < mandatoryEnd, snapSuspended);
 	function applySnapMode(inRegions, suspended) {
 		if (typeof document === 'undefined') return;
-		const want = suspended ? 'none' : inRegions ? 'y mandatory' : 'y proximity';
+		// Past the regions we use 'none', NOT 'proximity'. Proximity still pulls
+		// toward the nearest marker within a sizeable range, so leaving Writing
+		// kept getting tugged back to its beat. There are no snap targets below
+		// the pin anyway, so proximity buys nothing there and only costs the
+		// exit.
+		const want = suspended ? 'none' : inRegions ? 'y mandatory' : 'none';
 		// CRITICAL: this runs on every scroll frame. Re-assigning the property
 		// mid-gesture makes the browser re-evaluate snapping, which reads as the
 		// region flickering and as the page resisting your swipe. Only ever write
@@ -470,6 +492,8 @@
 		<div
 			class="absolute inset-0 z-20 transition-none {brainInteractive ? '' : 'pointer-events-none'}"
 			style="opacity: {brainOpacity}; transform: translate({brainTx}px, {brainTy}px) scale({brainScale}); transform-origin: {ORIGIN};"
+			bind:clientWidth={layerW}
+			bind:clientHeight={layerH}
 			aria-hidden={!brainInteractive}
 		>
 			<svg
