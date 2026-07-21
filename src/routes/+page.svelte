@@ -2,6 +2,8 @@
 	// Resolves static assets correctly under any deploy base path ('' by default).
 	import { base } from '$app/paths';
 	import { onDestroy } from 'svelte';
+	import { fly } from 'svelte/transition';
+	import { cubicOut } from 'svelte/easing';
 	import { posts } from '$lib/posts';
 	import { formatDate } from '$lib/formatDate';
 	import ContactSection from '$lib/components/ContactSection.svelte';
@@ -15,10 +17,11 @@
 	//     is pixel-locked to the head. It fades + grows in as you scroll.
 	//   • Once zoomed, the brain stays pinned while you keep scrolling: scroll
 	//     walks through the REGIONS (auto-selecting each), snapping to one at a
-	//     time. Clicking a segment jumps to that region. The bottom filmstrip
-	//     shows that region's items — several at once — and you CLICK (cards or
-	//     arrows) to move between them; the focused item's text sits in a box.
-	//     Nothing navigates away — the item cards are the only links.
+	//     time. Clicking a segment jumps to that region. The brain then parks
+	//     itself in the top-right corner and that region's items are listed as
+	//     a vertical ACCORDION — regions move horizontally, items vertically.
+	//     Nothing navigates away — the links inside an expanded item are the
+	//     only way out.
 	//   • About Me · Recent posts · Contact — normal-flow sections after the pin.
 	//
 	//  NOTE: do NOT put `transform-box`/`transform-origin` on the segment <g>s —
@@ -128,7 +131,7 @@
 
 	// --- Scroll-driven region browse -------------------------------------
 	// Scrolling walks through the REGIONS (segments) only. The items within a
-	// region are NOT scroll-driven — you click between them in the filmstrip.
+	// region are NOT scroll-driven — you expand them in the accordion.
 	const order = ['big', 'middle', 'bottom'];
 	$: totalRegions = order.length;
 
@@ -189,7 +192,7 @@
 
 	// Parked size, expressed as a share of the viewport width so it reads the
 	// same on any screen.
-	$: parkScale = brainW ? (innerWidth * (isNarrow ? 0.46 : 0.24)) / brainW : 1;
+	$: parkScale = brainW ? (innerWidth * (isNarrow ? 0.3 : 0.24)) / brainW : 1;
 	$: parkCx = innerWidth - PARK_GAP - (brainW * parkScale) / 2;
 	$: parkCy = HEADER_H + PARK_GAP + (brainH * parkScale) / 2;
 	// ORIGIN ('61% 43%') as pixels — the layer box is the viewport. Scaling about
@@ -232,77 +235,29 @@
 	$: paneOpacity = active ? settleSmooth : 0;
 
 	$: items = active ? sections[active].items : [];
-	$: n = items.length;
 
-	// The focused item is click-driven and LOOPS. `focusAbs` is an unbounded
-	// position; the shown item is focusAbs mod n. The desktop filmstrip renders
-	// three copies of the items so there's always something to the left AND
-	// right; after a move that crosses the ends we rebase focusAbs back into
-	// [0, n) with the track transition off, so the wrap is seamless.
-	let focusAbs = 0;
-	let animate = true;
-	let rebaseTimer;
-	$: active, resetFocus();
-	function resetFocus() {
-		focusAbs = 0;
-		animate = true;
-	}
-	$: focusIndex = n ? (((focusAbs % n) + n) % n) : 0;
-	$: current = n ? items[focusIndex] : null;
+	// Items are a plain vertical ACCORDION inside the region's container: one
+	// open at a time (so the container's height stays bounded and predictable),
+	// and the first is open by default so a region never reads as empty.
+	// Regions move horizontally, items move vertically — one axis, one meaning.
+	let openIndex = 0;
+	$: active, (openIndex = 0); // new region → back to its first item
 
-	function scheduleRebase() {
-		clearTimeout(rebaseTimer);
-		rebaseTimer = setTimeout(() => {
-			if (!n) return;
-			const wrapped = ((focusAbs % n) + n) % n;
-			if (wrapped !== focusAbs) {
-				animate = false;
-				focusAbs = wrapped;
-				requestAnimationFrame(() => requestAnimationFrame(() => (animate = true)));
-			}
-		}, 480);
+	// Which way the region container should slide. Going forward the outgoing
+	// one leaves to the left and the new one enters from the right; going back,
+	// the mirror. Without this the animation would read the same in both
+	// directions and stop meaning anything.
+	let slideDir = 1;
+	let prevRegion = 0;
+	$: if (regionIndex !== prevRegion) {
+		slideDir = regionIndex > prevRegion ? 1 : -1;
+		prevRegion = regionIndex;
 	}
-	function stepItem(dir, byUser = true) {
-		if (!n) return;
-		if (byUser) paused = true;
-		focusAbs += dir;
-		scheduleRebase();
-	}
-	function focusItem(j) {
-		if (!n) return;
-		paused = true; // picking an item is a deliberate stop
-		let d = (((j - focusIndex) % n) + n) % n; // forward distance 0..n-1
-		if (d > n / 2) d -= n; // take the shorter way round
-		focusAbs += d;
-		scheduleRebase();
-	}
-	function cardKey(event, index) {
-		if (event.key === 'Enter' || event.key === ' ') {
-			event.preventDefault();
-			focusItem(index);
-		}
+	function toggleItem(i) {
+		openIndex = openIndex === i ? -1 : i;
 	}
 
-	// --- Autoplay ---------------------------------------------------------
-	// The items in a region cycle on their own, so you never have to discover a
-	// control to see what's in there. ANY deliberate interaction (tapping a card,
-	// a dot, an arrow) latches `paused` — the play/pause button is the only way
-	// back. Pausing is sticky across regions: once you've said "let me read",
-	// we don't start yanking cards away again.
-	const AUTO_MS = 4000;
-	let paused = false;
-	let autoTimer;
-	$: canAuto = !!active && settle > 0.99 && !paused;
-	// Passing the deps as args is what registers them with the reactive block.
-	$: schedule(canAuto, focusAbs, n);
-	function schedule(go, _focus, count) {
-		clearTimeout(autoTimer);
-		if (!go || count < 2) return;
-		autoTimer = setTimeout(() => stepItem(1, false), AUTO_MS);
-	}
 	onDestroy(() => {
-		clearTimeout(autoTimer);
-		clearTimeout(rebaseTimer);
 		clearTimeout(idleTimer);
 		// onDestroy also runs during SSR, where rAF doesn't exist.
 		if (typeof window !== 'undefined') cancelAnimationFrame(easeRaf);
@@ -390,15 +345,6 @@
 			goToRegion(key);
 		}
 	}
-
-	// --- Filmstrip layout ------------------------------------------------
-	// Non-focused cards are CARD wide; the focused one grows to FOCUS_CARD (both
-	// must match the .tv / .tv-focus widths in <style>). Cards before the focused
-	// one are all CARD-wide, so centering only needs FOCUS_CARD for the focused
-	// card's own half-width.
-	const CARD = 176;
-	const FOCUS_CARD = 300;
-	const STRIDE = CARD + 18; // non-focused card width + gap
 
 	const isExternal = (href) => !!href?.startsWith('http');
 	const imgSrc = (img) => (img ? (img.startsWith('http') ? img : base + img) : null);
@@ -589,60 +535,25 @@
 			</svg>
 		</div>
 
-		<!-- ── Context pane. Items cycle on their own until you interact.
-		     Desktop = a looping filmstrip, top-anchored so the card row doesn't
-		     bob as descriptions of different lengths swap in. Mobile = a deck,
-		     BOTTOM-anchored above the skip pill so however tall a card gets it
-		     grows upward and can never collide with it. -->
+		<!-- ── Context pane ────────────────────────────────────────────
+		     ONE axis per meaning: regions move HORIZONTALLY (scroll, the section
+		     bar's arrows, or clicking a lobe), items move VERTICALLY as a plain
+		     accordion inside the region's container. Same markup at every
+		     breakpoint — only the image height and the blurb clamp differ. -->
 		<div
-			class="pointer-events-none absolute inset-x-0 bottom-[4.25rem] z-30 overflow-x-clip px-3 md:bottom-auto md:top-[36vh] md:px-4"
+			class="pointer-events-none absolute inset-x-0 top-[25vh] z-30 overflow-x-clip px-3 md:top-[26vh] md:px-4"
 			style="opacity: {paneOpacity}; transition: opacity 0.3s;"
 			aria-hidden={!active}
 		>
-			{#if active && current}
+			{#if active}
 				{@const s = sections[active]}
-				<div class="pointer-events-auto mx-auto flex w-full max-w-6xl flex-col items-center">
-					<!-- ── MOBILE section bar. On a phone the three regions have no
-					     visible "there's more over here" cue, so they get an explicit
-					     ‹ Region › control. Tapping the label itself opens the region
-					     list below it. -->
-					<div class="mb-3 flex w-full max-w-sm items-center justify-between gap-2 md:hidden">
-						<button
-							type="button"
-							class="nav-arrow"
-							aria-label="Previous section"
-							on:click={() => stepRegion(-1)}
-						>
-							‹
-						</button>
-						<span
-							class="flex flex-1 items-center justify-center gap-2 rounded-full border-[3px] border-charcoal bg-white px-3 py-1.5 shadow-cartoon-sm"
-						>
-							<span class="h-3 w-3 shrink-0 rounded-full ring-2 ring-charcoal" style="background:{s.color};"
-							></span>
-							<span class="text-xs font-extrabold uppercase tracking-widest text-charcoal">
-								{s.label}
-							</span>
-							<span class="text-[0.65rem] font-bold text-charcoal-soft">
-								{regionIndex + 1}/{totalRegions}
-							</span>
-						</span>
-						<!-- On the last region this arrow leaves the pin for About, so it
-						     turns into a ↓ rather than pretending there's more sideways. -->
-						<button
-							type="button"
-							class="nav-arrow"
-							aria-label={atLastRegion ? 'Continue to about me' : 'Next section'}
-							on:click={() => stepRegion(1)}
-						>
-							{atLastRegion ? '↓' : '›'}
-						</button>
-					</div>
-
+				<div
+					class="pointer-events-auto mx-auto flex w-full max-w-sm flex-col items-center md:max-w-lg"
+				>
 					<!-- region stepper (desktop): all regions shown, active one lit, the
 					     rest greyed. The › order shows which way to scroll for the next
 					     one; click one to jump straight there. -->
-					<div class="mb-1 hidden flex-wrap items-center justify-center gap-x-1 gap-y-1 md:flex">
+					<div class="mb-2 hidden flex-wrap items-center justify-center gap-x-1 gap-y-1 md:flex">
 						{#each order as key, i}
 							{@const on = key === active}
 							<button
@@ -664,205 +575,135 @@
 							{/if}
 						{/each}
 					</div>
-					<!-- Item counter + autoplay toggle (desktop; mobile gets the dot
-					     row under the deck instead). -->
-					<div class="mb-3 hidden items-center gap-2 md:flex">
-						<span class="text-xs font-bold text-charcoal-soft">{focusIndex + 1} / {n}</span>
-						{#if n > 1}
-							<button
-								type="button"
-								class="play-toggle"
-								aria-label={paused ? 'Play' : 'Pause'}
-								aria-pressed={!paused}
-								on:click={() => (paused = !paused)}
-							>
-								{paused ? '▶' : '❚❚'}
-							</button>
-						{/if}
-					</div>
 
-					<!-- ── DESKTOP: looping filmstrip (‹ arrow · cards · arrow ›) ──
-					     Three copies of the items are rendered so there's always
-					     something to the left AND right; after a wrap we rebase the
-					     position with transitions off (via `animate`) so it loops
-					     seamlessly. Cards align at the top so the focused one grows
-					     downward and the arrows stay put. -->
-					<div class="hidden w-full items-start gap-2 md:flex">
-						{#if n > 1}
-							<button
-								type="button"
-								class="nav-arrow mt-14"
-								aria-label="Previous"
-								on:click={() => stepItem(-1)}
-							>
-								‹
-							</button>
-						{/if}
-
-						<div class="relative min-w-0 flex-1 overflow-hidden pb-2">
+					<!-- The region container slides as one piece: on a phone that
+					     includes its ‹ › arrows, since they belong to the region being
+					     replaced. Both copies are stacked in a single grid cell so the
+					     outgoing one can overlap the incoming one instead of shoving it
+					     down the page mid-transition. -->
+					<div class="slide-stack w-full">
+						{#key active}
 							<div
-								class="flex items-start"
-								style="position: relative; left: 50%; gap: 18px; transform: translateX(calc(-1 * {n +
-									focusAbs} * {STRIDE}px - {FOCUS_CARD / 2}px)); {animate
-									? 'transition: transform 0.45s cubic-bezier(0.175, 0.885, 0.32, 1.275);'
-									: ''}"
+								class="w-full"
+								in:fly={{ x: slideDir * 90, duration: 320, easing: cubicOut }}
+								out:fly={{ x: slideDir * -90, duration: 220, easing: cubicOut }}
 							>
-								{#each [0, 1, 2] as copy (copy)}
-									{#each items as item, i (copy + '-' + i)}
-										{@const focused = copy * n + i === n + focusAbs}
-										<div
-											class="tv {focused ? 'tv-focus' : 'tv-side'} {animate ? '' : 'no-tr'}"
-											role={focused ? undefined : 'button'}
-											tabindex={focused ? undefined : 0}
-											aria-label={focused ? undefined : `Show ${item.title}`}
-											on:click={() => focusItem(i)}
-											on:keydown={(e) => cardKey(e, i)}
-										>
-											<span
-												class="{focused ? 'tv-fscreen' : 'tv-screen'}"
-												style="background:{s.color};"
+								<!-- ── MOBILE section bar. On a phone the three regions have no
+								     visible "there's more over here" cue, so they get an explicit
+								     ‹ Region › control. -->
+								<div class="mb-3 flex w-full items-center justify-between gap-2 md:hidden">
+									<button
+										type="button"
+										class="nav-arrow"
+										aria-label="Previous section"
+										on:click={() => stepRegion(-1)}
+									>
+										‹
+									</button>
+									<span
+										class="flex flex-1 items-center justify-center gap-2 rounded-full border-[3px] border-charcoal bg-white px-3 py-1.5 shadow-cartoon-sm"
+									>
+										<span
+											class="h-3 w-3 shrink-0 rounded-full ring-2 ring-charcoal"
+											style="background:{s.color};"
+										></span>
+										<span class="text-xs font-extrabold uppercase tracking-widest text-charcoal">
+											{s.label}
+										</span>
+										<span class="text-[0.65rem] font-bold text-charcoal-soft">
+											{regionIndex + 1}/{totalRegions}
+										</span>
+									</span>
+									<!-- On the last region this arrow leaves the pin for About, so it
+									     turns into a ↓ rather than pretending there's more sideways. -->
+									<button
+										type="button"
+										class="nav-arrow"
+										aria-label={atLastRegion ? 'Continue to about me' : 'Next section'}
+										on:click={() => stepRegion(1)}
+									>
+										{atLastRegion ? '↓' : '›'}
+									</button>
+								</div>
+
+								<!-- ── The region's items, as one accordion. Exactly one is open,
+								     which is what keeps the container's height bounded — important,
+								     since it's absolutely positioned between the parked brain and
+								     the skip pill. -->
+								<div
+									class="w-full overflow-hidden rounded-xl border-[3px] border-charcoal bg-white shadow-cartoon"
+								>
+									{#each items as item, i (item.title)}
+										{@const open = i === openIndex}
+										<div class="border-b-[3px] border-charcoal last:border-b-0">
+											<button
+												type="button"
+												class="flex w-full items-center gap-2.5 px-3.5 py-2.5 text-left transition-colors {open
+													? ''
+													: 'hover:bg-cream'}"
+												aria-expanded={open}
+												style={open ? `background:${s.color};` : ''}
+												on:click={() => toggleItem(i)}
 											>
-												{#if imgSrc(item.image)}
-													<img src={imgSrc(item.image)} alt={item.title} loading="lazy" />
-												{:else}
-													<span class="tv-ph">{item.title}</span>
-												{/if}
-											</span>
-											{#if focused}
-												<span class="tv-body">
-													<span class="block text-lg font-extrabold leading-snug text-charcoal">
-														{item.title}
-													</span>
-													<span class="mt-1.5 block text-sm leading-normal text-charcoal-soft">
-														{item.details}
-													</span>
-													{#if item.tags?.length}
-														<span class="mt-2.5 flex flex-wrap justify-center gap-1.5">
-															{#each item.tags as tag}
-																<span class="tv-tag">{tag}</span>
-															{/each}
-														</span>
-													{/if}
-													{#if item.href}
-														<a
-															href={item.href}
-															target={isExternal(item.href) ? '_blank' : undefined}
-															rel={isExternal(item.href) ? 'noopener noreferrer' : undefined}
-															class="tv-link"
-														>
-															{isExternal(item.href) ? 'Visit' : 'Read'} →
-														</a>
-													{/if}
+												<span
+													class="h-3 w-3 shrink-0 rounded-full ring-2 ring-charcoal"
+													style="background:{open ? 'white' : 'transparent'};"
+												></span>
+												<span class="flex-1 text-sm font-extrabold leading-snug text-charcoal">
+													{item.title}
 												</span>
-											{:else}
-												<span class="tv-foot"></span>
+												<span class="acc-sign" aria-hidden="true">{open ? '−' : '+'}</span>
+											</button>
+
+											{#if open}
+												<div class="border-t-[3px] border-charcoal">
+													{#if imgSrc(item.image)}
+														<!-- `contain`, not `cover`: these are hero images with
+														     titles baked in, and cover was slicing the wordmark
+														     off the top. Any letterboxing fills with the region's
+														     own colour so it reads as intentional. -->
+														<img
+															src={imgSrc(item.image)}
+															alt={item.title}
+															class="h-36 w-full object-contain md:h-56"
+															style="background:{s.color};"
+															loading="lazy"
+														/>
+													{/if}
+													<div class="px-3.5 py-3">
+														<p class="line-clamp-3 text-sm leading-normal text-charcoal-soft md:line-clamp-none">
+															{item.details}
+														</p>
+														{#if item.tags?.length}
+															<div class="mt-2.5 flex flex-wrap gap-1.5">
+																{#each item.tags as tag}
+																	<span class="tv-tag">{tag}</span>
+																{/each}
+															</div>
+														{/if}
+														{#if item.href}
+															<a
+																href={item.href}
+																target={isExternal(item.href) ? '_blank' : undefined}
+																rel={isExternal(item.href) ? 'noopener noreferrer' : undefined}
+																class="tv-link"
+															>
+																{isExternal(item.href) ? 'Visit' : 'Read'} →
+															</a>
+														{/if}
+													</div>
+												</div>
 											{/if}
 										</div>
 									{/each}
-								{/each}
-							</div>
-						</div>
-
-						{#if n > 1}
-							<button type="button" class="nav-arrow mt-14" aria-label="Next" on:click={() => stepItem(1)}>
-								›
-							</button>
-						{/if}
-					</div>
-
-					<!-- ── MOBILE: a deck of cards, cycling on its own. Only the
-					     focused item is readable; the rest sit behind it as peeking
-					     card backs. Tap a back (or a dot) to deal that one to the
-					     front — which also stops the rotation.
-					     Deliberately NO ‹ › arrows here: the only arrows on mobile
-					     are the section bar's, so an arrow always means "different
-					     brain region", never "different card". -->
-					<div class="mx-auto w-full max-w-sm md:hidden">
-						<div class="deck">
-							<!-- Card backs — at most two, so the stack reads as a deck
-							     without turning into a pile. Rendered before the front
-							     card and pushed behind it with z-index. -->
-							{#each Array.from({ length: Math.min(n - 1, 2) }) as _, k (k)}
-								<div
-									class="deck-back"
-									style="--d: {k + 1}; background: {s.color};"
-									role="button"
-									tabindex="0"
-									aria-label="Next item"
-									on:click={() => stepItem(1)}
-									on:keydown={(e) => e.key === 'Enter' && stepItem(1)}
-								></div>
-							{/each}
-
-							<div class="deck-front">
-								<span
-									class="flex aspect-[2/1] w-full items-center justify-center overflow-hidden border-b-[3px] border-charcoal"
-									style="background:{s.color};"
-								>
-									{#if imgSrc(current.image)}
-										<img
-											src={imgSrc(current.image)}
-											alt={current.title}
-											class="h-full w-full object-cover"
-											loading="lazy"
-										/>
-									{:else}
-										<span class="tv-ph">{current.title}</span>
-									{/if}
-								</span>
-								<div class="p-4 text-center">
-									<h3 class="text-lg font-extrabold leading-snug text-charcoal">{current.title}</h3>
-									<p class="mt-1.5 line-clamp-5 text-sm leading-normal text-charcoal-soft">
-										{current.details}
-									</p>
-									{#if current.tags?.length}
-										<div class="mt-2.5 flex flex-wrap justify-center gap-1.5">
-											{#each current.tags as tag}
-												<span class="tv-tag">{tag}</span>
-											{/each}
-										</div>
-									{/if}
-									{#if current.href}
-										<a
-											href={current.href}
-											target={isExternal(current.href) ? '_blank' : undefined}
-											rel={isExternal(current.href) ? 'noopener noreferrer' : undefined}
-											class="tv-link"
-										>
-											{isExternal(current.href) ? 'Visit' : 'Read'} →
-										</a>
-									{/if}
 								</div>
 							</div>
-						</div>
-
-						{#if n > 1}
-							<div class="mt-3 flex items-center justify-center gap-2">
-								{#each items as item, i (i)}
-									<button
-										type="button"
-										class="dot {i === focusIndex ? 'is-on' : ''}"
-										style={i === focusIndex ? `background:${s.color};` : ''}
-										aria-label="Show {item.title}"
-										aria-current={i === focusIndex}
-										on:click={() => focusItem(i)}
-									></button>
-								{/each}
-								<button
-									type="button"
-									class="play-toggle ml-1"
-									aria-label={paused ? 'Play' : 'Pause'}
-									aria-pressed={!paused}
-									on:click={() => (paused = !paused)}
-								>
-									{paused ? '▶' : '❚❚'}
-								</button>
-							</div>
-						{/if}
+						{/key}
 					</div>
 				</div>
 			{/if}
 		</div>
+
 
 		<!-- Skip button — jump past the whole brain section to About. Pinned
 		     bottom-right, fades in with the brain. -->
@@ -1052,122 +893,17 @@
 		filter: drop-shadow(0 8px 12px rgba(45, 42, 50, 0.45));
 	}
 
-	/* ── Mobile deck ────────────────────────────────────────────────────
-	   The focused item is a normal-flow card; the others are absolutely
-	   positioned "card backs" behind it, nudged down and narrowed so the
-	   stack reads as a deck. The wrapper's bottom padding is exactly the
-	   room the deepest back peeks into, so nothing overflows. */
-	.deck {
-		position: relative;
-		padding-bottom: 22px;
+	/* Stacks the outgoing and incoming region containers in ONE grid cell, so
+	   during the cross-slide they overlap instead of the outgoing one pushing
+	   the incoming one down. */
+	.slide-stack {
+		display: grid;
 	}
-	.deck-back {
-		position: absolute;
-		inset: 0 0 22px 0;
-		z-index: 1;
-		cursor: pointer;
-		border: 3px solid var(--color-charcoal);
-		border-radius: var(--radius-cartoon, 1.1rem);
-		box-shadow: var(--shadow-cartoon-sm);
-		transform: translateY(calc(var(--d) * 11px)) scaleX(calc(1 - var(--d) * 0.05));
-		opacity: calc(1 - var(--d) * 0.25);
-		transition:
-			transform 0.35s cubic-bezier(0.175, 0.885, 0.32, 1.275),
-			opacity 0.35s ease;
-	}
-	.deck-back:nth-of-type(2) {
-		z-index: 0;
-	}
-	.deck-front {
-		position: relative;
-		z-index: 2;
-		overflow: hidden;
-		border: 3px solid var(--color-charcoal);
-		border-radius: var(--radius-cartoon, 1.1rem);
-		background: white;
-		box-shadow: var(--shadow-cartoon);
+	.slide-stack > :global(*) {
+		grid-area: 1 / 1;
 	}
 
-	/* Item dots — the mobile stand-in for the desktop filmstrip: they show how
-	   many cards are in this region and which one you're on. Tapping one both
-	   jumps to it and stops the rotation. */
-	.dot {
-		width: 0.6rem;
-		height: 0.6rem;
-		border: 2px solid var(--color-charcoal);
-		border-radius: 9999px;
-		background: transparent;
-		opacity: 0.45;
-		transition:
-			opacity 0.25s ease,
-			transform 0.25s ease;
-	}
-	.dot.is-on {
-		opacity: 1;
-		transform: scale(1.3);
-	}
-
-	/* Autoplay play/pause. Small and quiet — it's an escape hatch, not a
-	   primary control. */
-	.play-toggle {
-		display: inline-flex;
-		height: 1.15rem;
-		min-width: 1.15rem;
-		align-items: center;
-		justify-content: center;
-		padding: 0 0.25rem;
-		border: 2px solid var(--color-charcoal);
-		border-radius: 9999px;
-		background: white;
-		font-size: 0.5rem;
-		line-height: 1;
-		color: var(--color-charcoal);
-	}
-
-	/* ── Filmstrip cards (cartoon "TV" screens) ─────────────────────── */
-	.tv {
-		flex: 0 0 176px; /* CARD in <script> */
-		width: 176px;
-		display: block;
-		border: 0;
-		background: transparent;
-		padding: 0;
-		cursor: pointer;
-		transform-origin: top center;
-		transition:
-			transform 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275),
-			opacity 0.35s ease,
-			flex-basis 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275),
-			width 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
-	}
-	/* During the seamless-loop rebase, kill transitions so the teleport is
-	   instant/invisible (paired with `animate` on the track). */
-	.tv.no-tr {
-		transition: none !important;
-	}
-	/* Neighbours: compact TVs, clearly visible (not faded out) so several read
-	   at once. */
-	.tv-side {
-		transform: scale(0.88);
-		opacity: 0.72;
-	}
-	.tv-side:hover {
-		opacity: 1;
-		transform: scale(0.92);
-	}
-	/* Focused card: ONE container, wider + taller, holding image + description. */
-	.tv-focus {
-		flex: 0 0 300px; /* FOCUS_CARD in <script> */
-		width: 300px;
-		cursor: default;
-		overflow: hidden;
-		border: 4px solid var(--color-charcoal);
-		border-radius: 1.1rem;
-		background: white;
-		box-shadow: var(--shadow-cartoon-sm);
-		text-align: center;
-	}
-	/* Stat/detail chips inside the featured card. */
+	/* ── Shared card bits (chips, links) ───────────────────────────── */
 	.tv-tag {
 		display: inline-block;
 		border: 2px solid var(--color-charcoal);
@@ -1177,24 +913,6 @@
 		font-weight: 800;
 		color: var(--color-charcoal);
 		background: var(--color-cream);
-	}
-	.tv-fscreen {
-		display: flex;
-		align-items: center;
-		justify-content: center;
-		width: 100%;
-		aspect-ratio: 4 / 3;
-		overflow: hidden;
-		border-bottom: 4px solid var(--color-charcoal);
-	}
-	.tv-fscreen img {
-		width: 100%;
-		height: 100%;
-		object-fit: cover;
-	}
-	.tv-body {
-		display: block;
-		padding: 0.65rem 0.7rem 0.75rem;
 	}
 	.tv-link {
 		display: inline-block;
@@ -1212,7 +930,23 @@
 		transform: translateY(-1px);
 	}
 
-	/* Prev/next arrows. */
+	/* Accordion open/close sign. */
+	.acc-sign {
+		display: flex;
+		height: 1.25rem;
+		width: 1.25rem;
+		flex-shrink: 0;
+		align-items: center;
+		justify-content: center;
+		border: 2px solid var(--color-charcoal);
+		border-radius: 9999px;
+		font-size: 0.85rem;
+		font-weight: 800;
+		line-height: 1;
+		color: var(--color-charcoal);
+	}
+
+	/* Region prev/next arrows (mobile section bar). */
 	.nav-arrow {
 		display: flex;
 		height: 2.25rem;
@@ -1236,39 +970,5 @@
 	.nav-arrow:active {
 		transform: translate(2px, 2px);
 		box-shadow: none;
-	}
-	.tv-screen {
-		display: flex;
-		align-items: center;
-		justify-content: center;
-		width: 100%;
-		aspect-ratio: 4 / 3;
-		overflow: hidden;
-		border: 4px solid var(--color-charcoal);
-		border-radius: 1.1rem;
-		box-shadow: var(--shadow-cartoon-sm);
-	}
-	.tv-screen img {
-		width: 100%;
-		height: 100%;
-		object-fit: cover;
-	}
-	.tv-ph {
-		padding: 0.5rem;
-		text-align: center;
-		font-weight: 800;
-		font-size: 0.85rem;
-		line-height: 1.2;
-		color: var(--color-charcoal);
-	}
-	/* Little stand/knob under the screen. */
-	.tv-foot {
-		display: block;
-		width: 16px;
-		height: 16px;
-		margin: -2px auto 0;
-		border: 4px solid var(--color-charcoal);
-		border-radius: 50%;
-		background: white;
 	}
 </style>
