@@ -203,6 +203,24 @@
 		}
 	}
 
+	// Skip past the whole pinned brain section straight to About. Snap is turned
+	// off for the duration so the region `scroll-snap-stop`s don't catch the
+	// jump partway, then restored once the smooth scroll settles.
+	function skipIntro() {
+		const el = document.getElementById('about');
+		if (!el) return;
+		const html = document.documentElement;
+		const prev = html.style.scrollSnapType;
+		html.style.scrollSnapType = 'none';
+		el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+		const restore = () => {
+			html.style.scrollSnapType = prev;
+			window.removeEventListener('scrollend', restore);
+		};
+		window.addEventListener('scrollend', restore);
+		setTimeout(restore, 1600); // fallback for browsers without `scrollend`
+	}
+
 	// Emphasis for a segment: the active one pops, the others dim; before the
 	// zoom finishes they idle-pulse to invite a click.
 	const segClass = (key, a) => (a === key ? 'is-active' : a ? 'is-dim' : 'is-idle');
@@ -613,6 +631,22 @@
 				</div>
 			{/if}
 		</div>
+
+		<!-- Skip button — jump past the whole brain section to About. Pinned
+		     bottom-right, fades in with the brain. -->
+		<button
+			type="button"
+			class="pointer-events-auto absolute bottom-6 right-4 z-40 inline-flex items-center gap-1.5 rounded-full border-[3px] border-charcoal bg-white px-4 py-2 text-sm font-extrabold text-charcoal shadow-cartoon-sm hover:-translate-y-0.5 sm:right-6 {brainInteractive
+				? ''
+				: 'pointer-events-none'}"
+			style="opacity: {brainOpacity}; transition: opacity 0.3s ease, transform 0.2s ease;"
+			aria-hidden={!brainInteractive}
+			tabindex={brainInteractive ? 0 : -1}
+			on:click={skipIntro}
+		>
+			Skip to about me
+			<span aria-hidden="true">↓</span>
+		</button>
 	</div>
 
 	<!-- Scroll-snap markers — one invisible target per animated beat (hero +
