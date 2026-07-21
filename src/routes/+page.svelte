@@ -280,8 +280,8 @@
 	// "Beats" are the snap targets in order: hero, each region, then the exit.
 	// Deliberate jumps (clicking a lobe, a chip, an arrow, the skip pill) set
 	// `bypassGuard` — those are *meant* to cross several beats at once.
-	$: beatTs = [...snapTs, exitT];
-	$: beatIndex = t > exitT + 0.05 ? -1 : nearestBeat(t);
+	$: beatTs = snapTs;
+	$: beatIndex = t > mandatoryEnd ? -1 : nearestBeat(t);
 	function nearestBeat(pos) {
 		let best = 0;
 		for (let i = 1; i < beatTs.length; i++) {
@@ -303,6 +303,10 @@
 		idleTimer = setTimeout(onScrollIdle, 180);
 	}
 	function scrollToBeat(k) {
+		// Our own correction is a deliberate jump too — without this the landing
+		// gets re-measured and can bounce back, which is the other half of the
+		// flicker.
+		bypassGuard = true;
 		window.scrollTo({ top: beatTs[k] * innerHeight, behavior: 'smooth' });
 	}
 	function onScrollIdle() {
@@ -340,23 +344,26 @@
 	// One swipe should never carry you through more than one region. That's what
 	// `scroll-snap-stop: always` is for, but browsers only honour it reliably
 	// under MANDATORY snapping — with `proximity` a hard fling sails straight
-	// past. So we run mandatory for the length of the pin and drop back to
-	// proximity once past it, since the tall About/posts/contact sections below
-	// have no snap points and mandatory would fight you the whole way down.
-	//
-	// `exitT` (the beat where the sticky releases) is a real snap target, so
-	// mandatory always has somewhere to let you go — without it, the last region
-	// would be a dead end you couldn't scroll out of.
-	$: exitT = introVH / 100 - 1;
+	// past. So we run mandatory across the regions and drop back to proximity
+	// for the tail of the pin and everything after it: the About/posts/contact
+	// sections have no snap points, and mandatory there fights you the whole way
+	// down. Ending the mandatory window just past the LAST region beat is what
+	// makes leaving the brain section feel like a normal scroll again.
+	$: mandatoryEnd = snapTs[snapTs.length - 1] + 0.15;
+
 	let snapSuspended = false;
-	$: applySnapMode(t < exitT - 0.05, snapSuspended);
-	function applySnapMode(inPin, suspended) {
+	let snapModeNow = '';
+	$: applySnapMode(t < mandatoryEnd, snapSuspended);
+	function applySnapMode(inRegions, suspended) {
 		if (typeof document === 'undefined') return;
-		document.documentElement.style.scrollSnapType = suspended
-			? 'none'
-			: inPin
-				? 'y mandatory'
-				: 'y proximity';
+		const want = suspended ? 'none' : inRegions ? 'y mandatory' : 'y proximity';
+		// CRITICAL: this runs on every scroll frame. Re-assigning the property
+		// mid-gesture makes the browser re-evaluate snapping, which reads as the
+		// region flickering and as the page resisting your swipe. Only ever write
+		// on an actual change.
+		if (want === snapModeNow) return;
+		snapModeNow = want;
+		document.documentElement.style.scrollSnapType = want;
 	}
 
 	// Skip past the whole pinned brain section straight to About. Snap is
@@ -830,9 +837,6 @@
 			aria-hidden="true"
 		></div>
 	{/each}
-	<!-- The way out. Deliberately NOT `snap-stop`, so a firm flick off the last
-	     region can carry straight on into About instead of being caught here. -->
-	<div class="snap-pt" style="top: {exitT * 100}vh;" aria-hidden="true"></div>
 
 	<!-- Hash anchors — one per region, parked at that region's scroll beat, so
 	     /#projects (and friends) land directly on it. -->
