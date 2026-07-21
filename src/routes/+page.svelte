@@ -118,6 +118,11 @@
 	$: dwell = Math.max(totalSteps * PER_ITEM, 0.5);
 	$: introVH = Math.round((1.5 + dwell) * 100);
 
+	// Scroll-snap beats, as viewport fractions (t): the hero (t=0), then one per
+	// (region, item) step centered in its slice. Rendered as invisible markers
+	// in the intro so scrolling settles on each animated beat.
+	$: snapTs = [0, ...Array.from({ length: totalSteps }, (_, k) => 0.5 + ((k + 0.5) / totalSteps) * dwell)];
+
 	// Progress through the dwell (after the zoom completes at t = 0.5), 0→1.
 	$: browse = Math.min(Math.max((t - 0.5) / dwell, 0), 1);
 	$: stepIndex = totalSteps ? Math.min(Math.floor(browse * totalSteps), totalSteps - 1) : 0;
@@ -408,6 +413,12 @@
 			{/if}
 		</div>
 	</div>
+
+	<!-- Scroll-snap markers — one invisible target per animated beat (hero +
+	     each region/item step) so scrolling settles on each. -->
+	{#each snapTs as st (st)}
+		<div class="snap-pt" style="top: {st * 100}vh;" aria-hidden="true"></div>
+	{/each}
 </div>
 
 <!-- ═══════════════════════════════════════════════════════════════════
@@ -489,6 +500,23 @@
 <ContactSection />
 
 <style>
+	/* Scroll-snap the animated intro beats. `proximity` (not `mandatory`) snaps
+	   to the nearest marker when you pause near one, without trapping you inside
+	   the tall content sections further down. Scoped to the home page: the rule
+	   only applies while this component is mounted. */
+	:global(html) {
+		scroll-snap-type: y proximity;
+	}
+	/* Invisible snap targets positioned down the intro at each beat's offset. */
+	.snap-pt {
+		position: absolute;
+		left: 0;
+		width: 1px;
+		height: 1px;
+		pointer-events: none;
+		scroll-snap-align: start;
+	}
+
 	/* Brain segments. NO transform-box/transform-origin here — the <g>s carry
 	   the art's matrix() positioning transform and those props would break it.
 	   (So the clickable affordance is opacity/filter only, never a transform.) */
