@@ -3,7 +3,7 @@
 	import { base } from '$app/paths';
 	import { onDestroy, onMount } from 'svelte';
 	import { afterNavigate } from '$app/navigation';
-	import { fly } from 'svelte/transition';
+	import { fade, fly } from 'svelte/transition';
 	import { cubicOut } from 'svelte/easing';
 	import { posts } from '$lib/posts';
 	import { featuredProjects } from '$lib/projects';
@@ -745,6 +745,29 @@
 		const crossesZoom = Math.min(from, to) / vhPx < ZOOM_END;
 		const ms = crossesZoom ? ZOOM_MS : Math.min(750, Math.max(420, dist * 0.85));
 		jumpMs = ms;
+
+		// A jump WE started — the hero pill, an arrow key, a lobe, a chip — has to
+		// lock the wheel out for its duration exactly like a wheel-driven step
+		// does. Without this the lock was only ever armed by `onWheel`, so the
+		// whole 1.9s zoom was an open window: any wheel input arriving during it
+		// (a trackpad's momentum tail from the flick just before the click, or an
+		// instinctive nudge while the zoom plays) passed straight through, hit the
+		// WHEEL_PX threshold and bought a SECOND step. That's why clicking "scroll
+		// to see what's in James' head" could land on Work Experience instead of
+		// Personal Projects — the click's beat was right, the tail added another.
+		//
+		// Guarded on `!wheelLock` so the wheel's own path is untouched: `onWheel`
+		// sets the lock before calling `stepBeat`, and its sample bookkeeping is
+		// what decides when a genuinely NEW push is allowed through.
+		if (!wheelLock) {
+			wheelLock = true;
+			wheelAcc = 0;
+			wheelMags = [];
+			wheelPeak = 0;
+			wheelSpent = false;
+			clearTimeout(wheelMaxTimer);
+			wheelMaxTimer = setTimeout(releaseWheel, Math.max(ms, WHEEL_TAIL));
+		}
 		const t0 = performance.now();
 
 		// NO "yield to the user" listeners here. Cancelling a jump part-way leaves
@@ -814,6 +837,11 @@
 	// instead of going to the first region, and the idle guard corrected on top
 	// of that. `activeIndex` is what you're looking at, so it's what ‹ › mean.
 	$: atLastRegion = activeIndex >= totalRegions - 1;
+	// What "next" means from where you're standing — the name of the place the
+	// button takes you, not a bare "Next". On the last region the next thing is
+	// no longer a region at all: it's the section after the pin, so the label
+	// says so rather than implying there's another lobe.
+	$: nextLabel = atLastRegion ? 'About me' : sections[order[activeIndex + 1]].label;
 	function stepRegion(dir) {
 		const k = activeIndex + dir;
 		if (k >= totalRegions) return skipIntro();
@@ -1355,7 +1383,55 @@
 			{/if}
 		</div>
 
+		<!-- ── Desktop "next" button ────────────────────────────────────
+		     A phone gets the ‹ › section bar; a desktop had only the scroll and the
+		     region chips, neither of which says what comes NEXT. This does, by name:
+		     on Personal Projects it reads "Work Experience", and on the last region
+		     it becomes "About me" — the same one-step-forward `stepRegion(1)` the
+		     mobile › fires, including its hand-off out of the pin.
 
+		     Bottom-right, i.e. exactly where the hero's "scroll to see…" pill sat:
+		     the two never coexist (this one is tied to `paneOpacity`, which is zero
+		     until the brain has settled), so the corner reads as one control
+		     handing off to the next. Sibling of the pane rather than a child of it,
+		     because the pane is keyed on `active` and re-mounts on every region
+		     change — the button would blink out and back with it.
+
+		     MOUNTED ONLY ONCE A REGION IS UP, not merely faded to zero: it shares
+		     that corner with the hero's pill, sits above it (z-30 vs z-10), and an
+		     opacity-0 button still takes clicks — so while the hero was on screen
+		     it silently ate the taps meant for "scroll to see what's in James'
+		     head" and jumped you to the SECOND region instead of the first. -->
+		{#if active}
+			<div
+				class="pointer-events-none absolute bottom-6 right-6 z-30 hidden md:block"
+				style="opacity: {paneOpacity}; transition: opacity 0.3s;"
+			>
+				<button type="button" class="next-pill pointer-events-auto" on:click={() => stepRegion(1)}>
+					<span class="next-label">
+						{#key nextLabel}
+							<span in:fade={{ duration: 200, delay: 80 }} out:fade={{ duration: 80 }}>
+								{nextLabel}
+							</span>
+						{/key}
+					</span>
+					<!-- Geometric chevron, same as the mobile arrows — the ›/→ glyphs sit
+					     on the baseline and look high next to centred text. -->
+					<svg
+						class="next-ico"
+						viewBox="0 0 24 24"
+						fill="none"
+						stroke="currentColor"
+						stroke-width="3.2"
+						stroke-linecap="round"
+						stroke-linejoin="round"
+						aria-hidden="true"
+					>
+						<path d="M9 4 L17 12 L9 20" />
+					</svg>
+				</button>
+			</div>
+		{/if}
 	</div>
 
 	<!-- Hash anchors — one per region, parked at that region's scroll beat, so
@@ -1613,6 +1689,52 @@
 		transform: translateY(-2px);
 	}
 	.hook-pill:active {
+		transform: translate(3px, 3px);
+		box-shadow: none;
+	}
+
+	/* Desktop "next section" button. Cut from the same cloth as the hero's
+	   hook-pill — same border, radius, shadow and press — because it plays the
+	   same role one beat later: the corner control that moves you forward. */
+	.next-pill {
+		display: inline-flex;
+		align-items: center;
+		gap: 0.5rem;
+		cursor: pointer;
+		border: 3px solid var(--color-charcoal);
+		border-radius: 9999px;
+		background: white;
+		padding: 0.5rem 0.6rem 0.5rem 1rem;
+		font-size: 0.8125rem;
+		font-weight: 800;
+		text-transform: uppercase;
+		letter-spacing: 0.08em;
+		color: var(--color-charcoal);
+		box-shadow: var(--shadow-cartoon-sm);
+		transition: transform 0.2s var(--ease-bouncy);
+	}
+	/* Both labels share one grid cell during the swap, so the outgoing one fades
+	   out UNDER the incoming one instead of shoving it sideways. */
+	.next-label {
+		display: grid;
+		white-space: nowrap;
+	}
+	.next-label > :global(*) {
+		grid-area: 1 / 1;
+	}
+	.next-ico {
+		width: 1rem;
+		height: 1rem;
+		flex-shrink: 0;
+		transition: transform 0.2s ease;
+	}
+	.next-pill:hover {
+		transform: translateY(-2px);
+	}
+	.next-pill:hover .next-ico {
+		transform: translateX(2px);
+	}
+	.next-pill:active {
 		transform: translate(3px, 3px);
 		box-shadow: none;
 	}
