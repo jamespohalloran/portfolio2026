@@ -723,21 +723,26 @@
 		     ONE axis per meaning: regions move HORIZONTALLY (scroll, the section
 		     bar's arrows, or clicking a lobe), items move VERTICALLY as a plain
 		     accordion inside the region's container. Same markup at every
-		     breakpoint — only the image height and the blurb clamp differ. -->
+		     breakpoint — only the image height and the blurb clamp differ.
+
+		     On desktop the pane sits TOP-LEFT, just under the fixed header, so it
+		     and the parked brain (top-right) split the screen instead of stacking.
+		     On a phone it stays centred and below the brain: the brain parks wider
+		     there, so a left-aligned card would slide underneath it. -->
 		<div
-			class="pointer-events-none absolute inset-x-0 top-[25vh] z-30 overflow-x-clip px-3 md:top-[26vh] md:px-4"
+			class="pointer-events-none absolute inset-x-0 top-[25vh] z-30 overflow-x-clip px-3 md:top-[5.25rem] md:px-6"
 			style="opacity: {paneOpacity}; transition: opacity 0.3s;"
 			aria-hidden={!active}
 		>
 			{#if active}
 				{@const s = sections[active]}
 				<div
-					class="pointer-events-auto mx-auto flex w-full max-w-sm flex-col items-center md:max-w-lg"
+					class="pointer-events-auto mx-auto flex w-full max-w-sm flex-col items-center md:mx-0 md:max-w-lg md:items-start"
 				>
 					<!-- region stepper (desktop): all regions shown, active one lit, the
 					     rest greyed. The › order shows which way to scroll for the next
 					     one; click one to jump straight there. -->
-					<div class="mb-2 hidden flex-wrap items-center justify-center gap-x-1 gap-y-1 md:flex">
+					<div class="mb-2 hidden flex-wrap items-center justify-start gap-x-1 gap-y-1 md:flex">
 						{#each order as key, i}
 							{@const on = key === active}
 							<button
