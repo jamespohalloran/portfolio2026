@@ -3,7 +3,7 @@
 	import { base } from '$app/paths';
 	import { onDestroy, onMount } from 'svelte';
 	import { afterNavigate } from '$app/navigation';
-	import { fade, fly } from 'svelte/transition';
+	import { fade, fly, slide } from 'svelte/transition';
 	import { cubicOut } from 'svelte/easing';
 	import { posts } from '$lib/posts';
 	import { featuredProjects } from '$lib/projects';
@@ -1254,19 +1254,44 @@
 													</span>
 													{#if !open}
 														<!-- A job's one-line tease is its title + dates, not the
-														     blurb: that's what you actually scan a résumé for. -->
+														     blurb: that's what you actually scan a résumé for.
+														     It collapses on the SAME curve and duration as the panel
+														     below — dropping it instantly would snap ~16px out of the
+														     row header at the exact moment the panel is smoothly
+														     growing, which is the one jump cut the animation is
+														     there to remove. The wrapper exists because `slide`
+														     animates a block box's height, and the tease itself is a
+														     `line-clamp` box. -->
 														<span
-															class="mt-0.5 line-clamp-1 text-xs leading-snug text-charcoal-soft"
+															class="block overflow-hidden"
+															transition:slide|local={{ duration: 260, easing: cubicOut }}
 														>
-															{item.role ? `${item.role} · ${item.period}` : item.details}
+															<span
+																class="mt-0.5 line-clamp-1 text-xs leading-snug text-charcoal-soft"
+															>
+																{item.role ? `${item.role} · ${item.period}` : item.details}
+															</span>
 														</span>
 													{/if}
 												</span>
 												<span class="acc-sign" aria-hidden="true">{open ? '−' : '+'}</span>
 											</button>
 
+											<!-- The panel slides its own height open and closed, so the
+											     rows below are pushed down rather than teleporting — with one
+											     open at a time, opening B while A is open reads as a single
+											     hand-off (A collapsing, B expanding) instead of a jump cut.
+											     `|local` is load-bearing: without it the slide ALSO plays
+											     whenever the `{#key active}` region container remounts, so
+											     every region change would replay the first item unfolding on
+											     top of the region's own horizontal fly. Local transitions
+											     only run when this block itself toggles — i.e. when you
+											     actually click a row. -->
 											{#if open}
-												<div class="border-t-[3px] border-charcoal">
+												<div
+													class="border-t-[3px] border-charcoal"
+													transition:slide|local={{ duration: 260, easing: cubicOut }}
+												>
 													<!-- Media + its CTA. The link is the ONLY way out of the
 													     pinned section, and as a small ghost pill at the bottom
 													     of the blurb it read as a footnote — people scrolled
