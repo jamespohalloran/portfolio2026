@@ -385,7 +385,17 @@
 	$: beatTs = snapTs;
 	// Snapping applies inside the pin only. Past the last beat the page is a
 	// normal document and must scroll normally, or leaving the brain fights you.
-	$: snapEnd = beatTs[beatTs.length - 1] + 0.15;
+	// This margin is the EXIT stickiness: stop short of it and you're pulled back
+	// onto the last region, so drifting out takes a deliberate scroll. Don't push
+	// it far — every bit of it is distance you travel into About before the page
+	// decides to yank you back, which reads as a fight rather than as grip.
+	$: snapEnd = beatTs[beatTs.length - 1] + 0.25;
+
+	// How far between two beats you must travel before the far one wins. Plain
+	// nearest-beat rounding is 0.5, i.e. a quarter-viewport nudge flips regions
+	// and it's easy to pass one by accident. Above 0.5 the beat you're resting on
+	// keeps hold of you until you've clearly committed to leaving it.
+	const STICK = 0.65;
 	function nearestBeat(pos) {
 		let best = 0;
 		for (let i = 1; i < beatTs.length; i++) {
@@ -430,6 +440,13 @@
 		let k = nearestBeat(t);
 		if (restBeat !== null && Math.abs(k - restBeat) > 1) {
 			k = restBeat + Math.sign(k - restBeat); // one flick, one beat
+		}
+		// Hysteresis: having landed nearer another beat isn't enough, you have to
+		// have covered STICK of the way there. Applied AFTER the one-beat clamp so
+		// it measures the gap you're actually being moved across.
+		if (restBeat !== null && k !== restBeat) {
+			const gap = Math.abs(beatTs[k] - beatTs[restBeat]);
+			if (gap > 0 && Math.abs(t - beatTs[restBeat]) < gap * STICK) k = restBeat;
 		}
 		restBeat = k;
 		const target = beatTs[k] * vhPx;
@@ -797,7 +814,7 @@
 		     On a phone it stays centred and below the brain: the brain parks wider
 		     there, so a left-aligned card would slide underneath it. -->
 		<div
-			class="pointer-events-none absolute inset-x-0 top-[25vh] z-30 overflow-x-clip px-3 md:top-[5.25rem] md:px-6"
+			class="brain-pane pointer-events-none absolute inset-x-0 top-[25vh] z-30 overflow-x-clip px-3 md:top-[5.25rem] md:px-6"
 			style="opacity: {paneOpacity}; transition: opacity 0.3s;"
 			aria-hidden={!active}
 		>
@@ -1268,6 +1285,18 @@
 		font-weight: 800;
 		line-height: 1;
 		color: var(--color-charcoal);
+	}
+
+	/* Every control in the pinned section opts out of text selection and of the
+	   double-tap-zoom delay. These are tap targets, and a tap that drifts a pixel
+	   was selecting their label instead of activating them — worse on the ‹ ›
+	   arrows, where you tap repeatedly in the same spot. */
+	.nav-arrow,
+	:global(.brain-pane button) {
+		-webkit-user-select: none;
+		user-select: none;
+		-webkit-tap-highlight-color: transparent;
+		touch-action: manipulation;
 	}
 
 	/* Region prev/next arrows (mobile section bar). */
