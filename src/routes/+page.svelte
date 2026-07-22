@@ -319,9 +319,7 @@
 		idleTimer = setTimeout(onScrollIdle, 180);
 	}
 	function scrollToBeat(k) {
-		scrollWithSnapOff(() =>
-			window.scrollTo({ top: beatTs[k] * innerHeight, behavior: 'smooth' })
-		);
+		jumpTo(beatTs[k] * innerHeight);
 	}
 	function onScrollIdle() {
 		// Outside the pin entirely — nothing to police, and re-entering from
@@ -371,30 +369,73 @@
 	let snapModeNow = '';
 	let snapRestoreTimer;
 
-	// Every programmatic scroll (a lobe, a chip, an arrow, the skip pill, a
-	// guard correction) MUST run with snapping off, or the snap engine grabs the
-	// in-flight animation and drags it back to the nearest beat — which is why
-	// the arrows bounced you to the section you started on, and why "Skip to
-	// about me" only worked from the last region (from anywhere else there was
-	// a `scroll-snap-stop` marker ahead to catch it).
+	// Every programmatic scroll (a lobe, a chip, an arrow, the skip pill, a guard
+	// correction) MUST run with snapping off, or the snap engine grabs the
+	// in-flight animation and drags it back to the nearest beat.
 	//
-	// The style write has to be SYNCHRONOUS. Setting `snapSuspended` and calling
-	// scrollTo in the same tick doesn't work: Svelte batches the reactive
-	// update, so the scroll starts while the element is still `y mandatory`.
-	function scrollWithSnapOff(doScroll) {
+	// We animate the scroll OURSELVES rather than using `behavior: 'smooth'`,
+	// and we detect the end by watching our own animation rather than listening
+	// for `scrollend`. Both of those exist for iOS Safari: it only got
+	// `scrollend` very recently (so the restore never fired, leaving snapping
+	// off or restoring at the wrong moment), and its snap engine interrupts
+	// native smooth scrolls even mid-flight. Driving position frame by frame
+	// with snapping hard off is the one approach that behaves the same
+	// everywhere.
+	let jumpRaf = 0;
+	let jumpCleanup = null;
+
+	function jumpTo(top) {
+		if (typeof window === 'undefined') return;
+		endJump(); // supersede any jump already running
+
 		bypassGuard = true; // a deliberate jump may legitimately cross several beats
 		snapSuspended = true;
-		applySnapMode(false, true); // write 'none' NOW, not on the next flush
-		doScroll();
+		// SYNCHRONOUS: setting `snapSuspended` alone isn't enough, because Svelte
+		// batches the reactive update and the scroll would start while the page
+		// is still `y mandatory`.
+		applySnapMode(false, true);
+
+		const from = window.scrollY;
+		const max = Math.max(0, document.documentElement.scrollHeight - window.innerHeight);
+		const to = Math.max(0, Math.min(top, max));
+		const dist = Math.abs(to - from);
+		if (dist < 2) return endJump();
+		// Scale the duration with distance, within reason, so a one-region hop
+		// isn't as slow as a jump out to About.
+		const ms = Math.min(700, Math.max(280, dist * 0.6));
+		const t0 = performance.now();
+
+		// A real touch/wheel during the animation means the user has taken over.
+		const yield_ = () => endJump();
+		window.addEventListener('touchstart', yield_, { passive: true });
+		window.addEventListener('wheel', yield_, { passive: true });
+		jumpCleanup = () => {
+			window.removeEventListener('touchstart', yield_);
+			window.removeEventListener('wheel', yield_);
+		};
+
+		const step = (now) => {
+			const p = Math.min((now - t0) / ms, 1);
+			const eased = 1 - Math.pow(1 - p, 3); // cubic-out
+			window.scrollTo(0, from + (to - from) * eased);
+			if (p < 1) jumpRaf = requestAnimationFrame(step);
+			else endJump();
+		};
+		jumpRaf = requestAnimationFrame(step);
+	}
+
+	// Restore snapping a beat after the animation stops, so the browser isn't
+	// re-snapping while the last frame is still landing.
+	function endJump() {
+		if (jumpRaf) cancelAnimationFrame(jumpRaf);
+		jumpRaf = 0;
+		if (jumpCleanup) jumpCleanup();
+		jumpCleanup = null;
 		clearTimeout(snapRestoreTimer);
-		const restore = () => {
-			clearTimeout(snapRestoreTimer);
-			window.removeEventListener('scrollend', restore);
+		snapRestoreTimer = setTimeout(() => {
 			snapSuspended = false;
 			applySnapMode(t < mandatoryEnd, false);
-		};
-		window.addEventListener('scrollend', restore);
-		snapRestoreTimer = setTimeout(restore, 1400); // browsers without `scrollend`
+		}, 80);
 	}
 	$: applySnapMode(t < mandatoryEnd, snapSuspended);
 	function applySnapMode(inRegions, suspended) {
@@ -420,7 +461,7 @@
 	function skipIntro() {
 		const el = document.getElementById('about');
 		if (!el) return;
-		scrollWithSnapOff(() => el.scrollIntoView({ behavior: 'smooth', block: 'start' }));
+		jumpTo(el.getBoundingClientRect().top + window.scrollY);
 	}
 
 	// Emphasis for a segment: the active one pops, the others dim; before the
@@ -428,13 +469,11 @@
 	const segClass = (key, a) => (a === key ? 'is-active' : a ? 'is-dim' : 'is-idle');
 
 	// Clicking a segment jumps the scroll straight to that region's slice.
-	function goToRegion(key, behavior = 'smooth') {
+	function goToRegion(key) {
 		const k = order.indexOf(key);
 		if (k < 0) return;
 		const b = (k + 0.5) / totalRegions;
-		scrollWithSnapOff(() =>
-			window.scrollTo({ top: (ZOOM_END + b * dwell) * innerHeight, behavior })
-		);
+		jumpTo((ZOOM_END + b * dwell) * innerHeight);
 	}
 
 	// Move one region forward/back (wraps). This is what the mobile section bar's
@@ -449,7 +488,7 @@
 		const k = regionIndex + dir;
 		if (k >= totalRegions) return skipIntro();
 		if (k < 0) {
-			return scrollWithSnapOff(() => window.scrollTo({ top: 0, behavior: 'smooth' }));
+			return jumpTo(0);
 		}
 		goToRegion(order[k]);
 	}
