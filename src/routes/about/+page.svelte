@@ -32,25 +32,21 @@
 			<div class="mt-6 space-y-4 text-lg leading-relaxed text-charcoal-soft">
 				<p>
 					I'm a software developer from Prince Edward Island, Canada. I've been in the industry for
-					over ten years, and I've got a knack for starting up personal projects — some of which I
-					abandon after a few days, and some of which I dedicate grueling years to.
+					over 15 years. I really love building joyful products.
 				</p>
 				<p>
-					Most recently I built and sold two daily games,
-					<a class="link" href="https://kindahardgolf.com">Kinda Hard Golf</a>
+					Most recently I built some daily games that have been played by millions of players:
+					<a class="link" href="https://kindahardgolf.com">Kinda Hard Golf</a> (recenty acquired)
 					and
 					<a class="link" href="https://squishybilliards.com">Squishy Billiards</a>. Before that I
-					worked on developer tooling and content platforms, bridging the gap between well-engineered
+					worked at Forestry/TinaCMS bridging the gap between well-engineered
 					websites and content-creation for non-developers.
 				</p>
 				<p>
-					There's been a big ol' pile of lessons in between all these endeavors, and I like writing
-					about them.
+					My recent full-time role was with <a class="link" href="https://brilliant.org">Brilliant</a>, where I worked with the interactives team building joyful Stem learning experiences.
 				</p>
 			</div>
 			<div class="mt-8 flex flex-wrap gap-3">
-				<!-- The projects live in the home page's brain, not at /projects
-				     (still an unbuilt stub). -->
 				<a href="/#projects" class="btn-cartoon">See my projects</a>
 				<a href="/blog" class="btn-cartoon !bg-temporal">Read the blog</a>
 			</div>
