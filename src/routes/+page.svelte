@@ -6,6 +6,7 @@
 	import { fly } from 'svelte/transition';
 	import { cubicOut } from 'svelte/easing';
 	import { posts } from '$lib/posts';
+	import { featuredProjects } from '$lib/projects';
 	import { formatDate } from '$lib/formatDate';
 	import ContactSection from '$lib/components/ContactSection.svelte';
 
@@ -47,35 +48,11 @@
 		big: {
 			label: 'Personal Projects',
 			color: '#a8e6cf',
-			items: [
-				{
-					title: 'Kinda Hard Golf',
-					details:
-						'A daily golf game I built solo in PixiJS over a few weeks. It struck a chord — over 4 million players to date and a steady 10k DAU — and after shipping 400 daily levels I sold the IP to a team of daily-game veterans.',
-					tags: ['4M+ players', '10k DAU', 'Sold the IP'],
-					href: 'https://kindahardgolf.com',
-					image: 'https://kindahardgolf.com/hero.jpg',
-					video: '/projects/kindahardgolf/gameplay.mp4'
-				},
-				{
-					title: 'Squishy Billiards',
-					details:
-						'Pool, with a gooey chaotic twist and fresh daily levels. A physics playground I built to see if lightning could strike twice.',
-					tags: ['Daily levels', 'Physics toy'],
-					href: 'https://squishybilliards.com',
-					image: 'https://squishybilliards.com/hero.jpg',
-					video: '/projects/squishybilliards/squishy-billiards-gameplay.mp4'
-				},
-				{
-					title: 'Miner Meltdown',
-					details:
-						'A multiplayer sabotage/mining game I built solo and shipped on Steam over several years, growing it to 25,000+ players on a shoestring budget before selling the IP in 2020.',
-					tags: ['Steam', '25k+ players', 'Sold the IP in 2020'],
-					href: 'https://store.steampowered.com/app/426190/Miner_Meltdown/',
-					image: '/projects/minermeltdown/minermeltdown.png',
-					gif: '/projects/minermeltdown/gameplay.gif'
-				}
-			]
+			// The featured slice of $lib/projects — the same records /projects
+			// renders in full, so the two can never disagree about a project.
+			// `more` is the region's own "there's a whole page of this" link.
+			more: { href: '/projects', label: 'All projects' },
+			items: featuredProjects
 		},
 		middle: {
 			label: 'Work Experience',
@@ -782,8 +759,8 @@
 	}
 
 	// Each region also gets a real anchor element parked at its scroll beat (see
-	// `.region-anchor` below), so /#projects — the header's Projects link — drops
-	// you straight onto the Projects region of the brain even without JS.
+	// `.region-anchor` below), so /#projects drops you straight onto the Projects
+	// region of the brain even without JS.
 	const REGION_ID = { big: 'projects', middle: 'experience' };
 
 	// ...but WITH JS we re-issue that jump ourselves, so a hash link and an arrow
@@ -851,12 +828,14 @@
 			     flex-centring alone still leaves it floating above the text's
 			     optical centre. -->
 			<div class="absolute bottom-3 right-3 sm:bottom-6 sm:right-6">
-				<p
-					class="inline-flex items-center gap-1.5 rounded-full border-[3px] border-charcoal bg-white px-3 py-1.5 text-xs font-extrabold text-charcoal shadow-cartoon-sm sm:px-4 sm:py-2 sm:text-sm"
+				<button
+					type="button"
+					class="hook-pill"
+					on:click={() => jumpTo(beatTs[1] * vhPx)}
 				>
 					Scroll to see what's in James' head.
 					<span class="animate-bounce text-sm leading-none sm:text-base" aria-hidden="true">↓</span>
-				</p>
+				</button>
 			</div>
 		</div>
 
@@ -1195,18 +1174,32 @@
 
 											{#if open}
 												<div class="border-t-[3px] border-charcoal">
-													{#if item.video}
+													<!-- Media + its CTA. The link is the ONLY way out of the
+													     pinned section, and as a small ghost pill at the bottom
+													     of the blurb it read as a footnote — people scrolled
+													     past without noticing there was a playable game one tap
+													     away. Sitting it ON the clip, bottom-right, puts it where
+													     the eye already is (the moving thing) and makes the
+													     footage itself the button's context. `relative` here is
+													     what the overlay positions against. -->
+													<div class="relative">
+														{#if item.video}
 														<!-- Gameplay beats a still, so a project's clip wins over
 														     its hero image. Muted + inline so phones will actually
 														     autoplay it; the clip is the ambience, not something
 														     you're meant to scrub, hence no controls. Deliberately
 														     NOT `cover` — the current capture is portrait, and
-														     cropping it to this box would leave a sliver. -->
+														     cropping it to this box would leave a sliver.
+														     The desktop height is a BUDGET, not a taste call: the
+														     pane is pinned between the header and the bottom of the
+														     viewport, so the open panel plus the "All projects" link
+														     under the accordion has to fit a ~730px laptop with
+														     nothing falling off the bottom. -->
 														<!-- svelte-ignore a11y-media-has-caption -->
 														<video
 															src={base + item.video}
 															poster={imgSrc(item.image)}
-															class="h-36 w-full bg-charcoal object-contain md:h-56"
+															class="h-36 w-full bg-charcoal object-contain md:h-44"
 															autoplay
 															muted
 															loop
@@ -1220,7 +1213,7 @@
 														<img
 															src={base + item.gif}
 															alt="{item.title} gameplay"
-															class="h-36 w-full bg-charcoal object-contain md:h-56"
+															class="h-36 w-full bg-charcoal object-contain md:h-44"
 														/>
 													{:else if imgSrc(item.image)}
 														<!-- `contain`, not `cover`: these are hero images with
@@ -1230,17 +1223,39 @@
 														<img
 															src={imgSrc(item.image)}
 															alt={item.title}
-															class="h-36 w-full object-contain md:h-56"
+															class="h-36 w-full object-contain md:h-44"
 															style="background:{s.color};"
 															loading="lazy"
 														/>
-													{/if}
+														{/if}
+
+														<!-- Jobs have no href, so nothing is overlaid on their
+														     logo — the button only exists where there's somewhere
+														     to go. -->
+														{#if item.href}
+															<a
+																href={item.href}
+																target={isExternal(item.href) ? '_blank' : undefined}
+																rel={isExternal(item.href) ? 'noopener noreferrer' : undefined}
+																class="tv-cta absolute bottom-2.5 right-2.5"
+																style="background:{s.color};"
+															>
+																{isExternal(item.href) ? 'Play it' : 'Read it'}
+																<span aria-hidden="true">→</span>
+															</a>
+														{/if}
+													</div>
 													<div class="px-3.5 py-3">
+														<!-- Jobs lead with role + dates; projects have no role, but the
+														     years they ran are just as much a part of the story, so they
+														     get the same line with only the dates on it. -->
 														{#if item.role}
 															<p class="mb-1.5 text-xs font-extrabold leading-snug text-charcoal">
 																{item.role}
 																<span class="block font-bold text-charcoal-soft">{item.period}</span>
 															</p>
+														{:else if item.period}
+															<p class="mb-1.5 text-xs font-bold text-charcoal-soft">{item.period}</p>
 														{/if}
 														<p class="line-clamp-3 text-sm leading-normal text-charcoal-soft md:line-clamp-none">
 															{item.details}
@@ -1252,22 +1267,22 @@
 																{/each}
 															</div>
 														{/if}
-														{#if item.href}
-															<a
-																href={item.href}
-																target={isExternal(item.href) ? '_blank' : undefined}
-																rel={isExternal(item.href) ? 'noopener noreferrer' : undefined}
-																class="tv-link"
-															>
-																{isExternal(item.href) ? 'Visit' : 'Read'} →
-															</a>
-														{/if}
 													</div>
 												</div>
 											{/if}
 										</div>
 									{/each}
 								</div>
+
+								<!-- Regions that have a dedicated page say so, right under the
+								     accordion: the brain deliberately shows only a featured few,
+								     so without this the rest of /projects is invisible. -->
+								{#if s.more}
+									<a href="{base}{s.more.href}" class="region-more">
+										{s.more.label}
+										<span aria-hidden="true">→</span>
+									</a>
+								{/if}
 							</div>
 						{/key}
 					</div>
@@ -1453,20 +1468,88 @@
 		color: var(--color-charcoal);
 		background: var(--color-cream);
 	}
-	.tv-link {
-		display: inline-block;
-		margin-top: 0.55rem;
-		border: 2px solid var(--color-charcoal);
+	/* The item's one link out, overlaid on the bottom-right of its media. Its
+	   fill is set inline to the region's colour, so only the shape lives here;
+	   the thick outline and hard shadow are what keep it legible over footage of
+	   any brightness. */
+	.tv-cta {
+		display: inline-flex;
+		align-items: center;
+		gap: 0.35rem;
+		border: 3px solid var(--color-charcoal);
 		border-radius: 9999px;
-		padding: 0.15rem 0.7rem;
-		font-size: 0.72rem;
+		padding: 0.3rem 0.9rem;
+		font-size: 0.85rem;
+		font-weight: 800;
+		color: var(--color-charcoal);
+		box-shadow: var(--shadow-cartoon-sm);
+		transition: transform 0.2s var(--ease-bouncy);
+	}
+	.tv-cta:hover {
+		transform: translateY(-2px);
+	}
+	.tv-cta:active {
+		transform: translate(3px, 3px);
+		box-shadow: none;
+	}
+	/* "All projects →" under a region's accordion. */
+	.region-more {
+		display: inline-flex;
+		align-items: center;
+		gap: 0.4rem;
+		margin-top: 0.875rem;
+		border: 3px solid var(--color-charcoal);
+		border-radius: 9999px;
+		padding: 0.25rem 0.85rem;
+		font-size: 0.78rem;
 		font-weight: 800;
 		color: var(--color-charcoal);
 		background: white;
-		transition: transform 0.2s ease;
+		box-shadow: var(--shadow-cartoon-sm);
+		transition: transform 0.2s var(--ease-bouncy);
 	}
-	.tv-link:hover {
-		transform: translateY(-1px);
+	.region-more:hover {
+		transform: translateY(-2px);
+	}
+	.region-more:active {
+		transform: translate(3px, 3px);
+		box-shadow: none;
+	}
+
+	/* The hero's "scroll to see…" prompt. It's a real button — the invitation is
+	   to move down the page, so it may as well do it for you if you'd rather tap
+	   than swipe. Pressing it plays exactly the same jump one flick would. */
+	.hook-pill {
+		display: inline-flex;
+		align-items: center;
+		gap: 0.375rem;
+		cursor: pointer;
+		border: 3px solid var(--color-charcoal);
+		border-radius: 9999px;
+		background: white;
+		padding: 0.375rem 0.75rem;
+		font-size: 0.75rem;
+		font-weight: 800;
+		color: var(--color-charcoal);
+		box-shadow: var(--shadow-cartoon-sm);
+		-webkit-user-select: none;
+		user-select: none;
+		-webkit-tap-highlight-color: transparent;
+		touch-action: manipulation;
+		transition: transform 0.2s var(--ease-bouncy);
+	}
+	@media (min-width: 640px) {
+		.hook-pill {
+			padding: 0.5rem 1rem;
+			font-size: 0.875rem;
+		}
+	}
+	.hook-pill:hover {
+		transform: translateY(-2px);
+	}
+	.hook-pill:active {
+		transform: translate(3px, 3px);
+		box-shadow: none;
 	}
 
 	/* Preview thumbnail on a CLOSED accordion row. Fixed box so every row is the

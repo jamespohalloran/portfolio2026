@@ -8,9 +8,11 @@
 	// Home link; a `cta` flag marks Contact so it renders as the button.
 	const nav = [
 		{ label: 'Home', href: '/', home: true },
-		// Projects lives inside the home page's brain — this drops you onto that
-		// region rather than a separate route (/projects is an unbuilt stub).
-		{ label: 'Projects', href: '/#projects' },
+		// A REAL page, for the same reason About is one: the home page's brain
+		// shows a featured few inside a pinned, scroll-driven section, and that's
+		// no place to browse an archive. /#projects still works and still lands on
+		// the brain's Projects lobe — it's just no longer what the nav points at.
+		{ label: 'Projects', href: '/projects' },
 		// About is a REAL page. It deliberately isn't `/#about`: a hash link has
 		// to land inside the pinned, scroll-snapped brain section's coordinate
 		// space, where the snap engine competes for the same scroll — a route
