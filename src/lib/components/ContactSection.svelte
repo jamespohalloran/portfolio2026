@@ -23,6 +23,9 @@
 			if (!window.turnstile || !widgetEl) return;
 			widgetId = window.turnstile.render(widgetEl, {
 				sitekey: TURNSTILE_SITEKEY,
+				// Stay invisible and run the challenge silently; only surface a
+				// visible box on the rare occasion a human interaction is needed.
+				appearance: 'interaction-only',
 				callback: (t) => (token = t),
 				'expired-callback': () => (token = ''),
 				'error-callback': () => (token = '')
@@ -61,7 +64,7 @@
 		}
 		if (TURNSTILE_SITEKEY && !token) {
 			status = 'error';
-			errorMsg = 'Please complete the anti-spam check just below the message.';
+			errorMsg = 'The anti-spam check didn’t complete — please try again.';
 			return;
 		}
 
@@ -153,7 +156,7 @@
 							<textarea
 								name="message"
 								rows="4"
-								placeholder="What ae you working on?"
+								placeholder="What are you working on?"
 								required
 								class="field mt-1.5 resize-y"
 							></textarea>
