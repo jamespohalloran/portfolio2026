@@ -63,6 +63,21 @@
 				</form>
 			</div>
 		</div>
+
+		<!-- The escape hatch from the form, deliberately OUTSIDE the speech
+		     bubble: inside, it competed with the fields for the same visual
+		     container. Some people would simply rather use their own mail
+		     client — and while the form is still a no-op stub, this is the only
+		     route that actually reaches James. -->
+		<p class="mt-8 text-center text-sm text-charcoal-soft">
+			…or email me at
+			<a
+				href="mailto:james.ohalloran@mightypebble.com"
+				class="font-bold text-charcoal underline decoration-frontal decoration-2 underline-offset-4 hover:decoration-charcoal"
+			>
+				james.ohalloran@mightypebble.com
+			</a>
+		</p>
 	</div>
 </section>
 

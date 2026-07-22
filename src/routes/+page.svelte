@@ -124,9 +124,22 @@
 	let innerHeight = 1;
 	let innerWidth = 0;
 
+	// ONE CSS vh, in pixels — the unit ALL of this section's scroll math must use.
+	//
+	// Everything positioned down the pin is expressed in `vh`: the pin's own
+	// height (introVH), the snap markers, the region anchors. On mobile `vh` is
+	// the LARGE viewport and stays put as the URL bar hides. `innerHeight` is the
+	// VISUAL viewport and shrinks the moment there's scroll room for that bar.
+	// Computing beat targets from innerHeight therefore aimed every jump a little
+	// off the snap markers, and when mandatory snapping came back 80ms later the
+	// browser hauled the scroll onto the real marker — the flicker, and it only
+	// showed up when there was room above to scroll (i.e. a visible URL bar).
+	// `layerH` is the `h-screen` brain layer measured, so it IS 100vh.
+	$: vhPx = layerH || innerHeight || 1;
+
 	// Viewports scrolled. The intro is pinned (sticky layer below) long enough
 	// to zoom in and then dwell, so you can click the brain.
-	$: t = scrollY / innerHeight;
+	$: t = scrollY / vhPx;
 
 	// ZOOM controls how big the hero + brain get at the end of the zoom-in. Kept
 	// modest because the brain doesn't stay big — it immediately shrinks away to
@@ -175,7 +188,17 @@
 	// Progress through the dwell (after the zoom completes) → region.
 	$: browse = Math.min(Math.max((t - ZOOM_END) / dwell, 0), 1);
 	$: regionIndex = totalRegions ? Math.min(Math.floor(browse * totalRegions), totalRegions - 1) : 0;
-	$: active = brainInteractive ? order[regionIndex] : null;
+
+	// A DELIBERATE jump (an arrow, a chip, a lobe) names its region up front, so
+	// the pane switches in the same frame as the tap rather than waiting for the
+	// bound `scrollY` to round-trip through the browser's scroll event. It is
+	// released on a short timer — by then the scroll has landed and `regionIndex`
+	// says the same thing, so the handover is invisible. Deliberately NOT cleared
+	// from `endJump`: that runs synchronously inside the jump, before the scroll
+	// event has updated `scrollY`, which would blink the old region back.
+	let pendingRegion = null;
+	let pendingTimer;
+	$: active = brainInteractive ? (pendingRegion ?? order[regionIndex]) : null;
 
 	// As browsing begins the brain shrinks and flies to its parked position in
 	// the top-right corner, clearing the screen for the (info-rich) featured
@@ -298,11 +321,18 @@
 	// one leaves to the left and the new one enters from the right; going back,
 	// the mirror. Without this the animation would read the same in both
 	// directions and stop meaning anything.
+	//
+	// Keyed off `active`, NOT `regionIndex`: with a tap now switching the region
+	// ahead of the scroll, regionIndex lags, and reading direction from it would
+	// leave the slide pointing the wrong way for the whole animation.
+	// (Falls back to regionIndex, not prevRegion — reading the tracker here would
+	// make this a reactive cycle.)
+	$: activeIndex = active ? order.indexOf(active) : regionIndex;
 	let slideDir = 1;
 	let prevRegion = 0;
-	$: if (regionIndex !== prevRegion) {
-		slideDir = regionIndex > prevRegion ? 1 : -1;
-		prevRegion = regionIndex;
+	$: if (activeIndex !== prevRegion) {
+		slideDir = activeIndex > prevRegion ? 1 : -1;
+		prevRegion = activeIndex;
 	}
 	function toggleItem(i) {
 		openIndex = openIndex === i ? -1 : i;
@@ -310,6 +340,7 @@
 
 	onDestroy(() => {
 		clearTimeout(idleTimer);
+		clearTimeout(pendingTimer);
 		clearTimeout(snapRestoreTimer);
 		// onDestroy also runs during SSR, where rAF doesn't exist.
 		if (typeof window !== 'undefined') cancelAnimationFrame(easeRaf);
@@ -328,7 +359,7 @@
 	//      in some browsers — so this backstops it.
 	//
 	// "Beats" are the snap targets in order: hero, each region, then the exit.
-	// Deliberate jumps (clicking a lobe, a chip, an arrow, the skip pill) set
+	// Deliberate jumps (clicking a lobe, a chip, or an arrow) set
 	// `bypassGuard` — those are *meant* to cross several beats at once.
 	$: beatTs = snapTs;
 	$: beatIndex = t > mandatoryEnd ? -1 : nearestBeat(t);
@@ -346,14 +377,14 @@
 	// anchor jump lands several beats in, and must not be walked back.
 	let restBeat = null;
 	let bypassGuard = false;
-	$: t, innerHeight, queueIdleCheck();
+	$: t, vhPx, queueIdleCheck();
 	function queueIdleCheck() {
 		if (typeof window === 'undefined') return;
 		clearTimeout(idleTimer);
 		idleTimer = setTimeout(onScrollIdle, 180);
 	}
 	function scrollToBeat(k) {
-		jumpTo(beatTs[k] * innerHeight);
+		jumpTo(beatTs[k] * vhPx);
 	}
 	function onScrollIdle() {
 		// Outside the pin entirely — nothing to police, and re-entering from
@@ -403,8 +434,8 @@
 	let snapModeNow = '';
 	let snapRestoreTimer;
 
-	// Every programmatic scroll (a lobe, a chip, an arrow, the skip pill, a guard
-	// correction) MUST run with snapping off, or the snap engine grabs the
+	// Every programmatic scroll (a lobe, a chip, an arrow, a guard correction)
+	// MUST run with snapping off, or the snap engine grabs the
 	// in-flight animation and drags it back to the nearest beat.
 	//
 	// We animate the scroll OURSELVES rather than using `behavior: 'smooth'`,
@@ -418,9 +449,24 @@
 	let jumpRaf = 0;
 	let jumpCleanup = null;
 
-	function jumpTo(top) {
+	// `instant` skips the animation entirely and sets the scroll position in one
+	// go. That is the right mode for a REGION HOP, because between region beats
+	// nothing on screen is scroll-animated: the brain is already parked and the
+	// pane is fixed, so scroll position decides only which region is active.
+	// Animating it bought no motion at all — it just delayed the region change by
+	// the length of the animation, and left a 200–500ms window in which a stray
+	// wheel/touch event could cancel the jump half-way and strand the scroll
+	// between beats (the back/forth/back). Instant has no in-flight window at
+	// all: no rAF, no yield listeners, nothing to race.
+	function jumpTo(top, instant = false) {
 		if (typeof window === 'undefined') return;
 		endJump(); // supersede any jump already running
+		// CRITICAL: `endJump` SCHEDULES the snap restore (80ms out) rather than
+		// doing it immediately. Left pending, it fires ~80ms into this jump's
+		// 280–700ms animation, flips the page back to `y mandatory` mid-flight,
+		// and the snap engine hauls the scroll back to the beat we started from —
+		// i.e. every arrow, chip and lobe click silently does nothing.
+		clearTimeout(snapRestoreTimer);
 
 		bypassGuard = true; // a deliberate jump may legitimately cross several beats
 		snapSuspended = true;
@@ -434,9 +480,13 @@
 		const to = Math.max(0, Math.min(top, max));
 		const dist = Math.abs(to - from);
 		if (dist < 2) return endJump();
-		// Scale the duration with distance, within reason, so a one-region hop
-		// isn't as slow as a jump out to About.
-		const ms = Math.min(700, Math.max(280, dist * 0.6));
+		if (instant) {
+			window.scrollTo(0, to);
+			return endJump(); // schedules the snap restore, giving the browser a beat
+		}
+		// Scale the duration with distance, within reason. This path is now only
+		// the long scenic move out to About, so it can afford to be leisurely.
+		const ms = Math.min(500, Math.max(190, dist * 0.42));
 		const t0 = performance.now();
 
 		// A real touch/wheel during the animation means the user has taken over.
@@ -489,8 +539,10 @@
 		document.documentElement.style.scrollSnapType = want;
 	}
 
-	// Skip past the whole pinned brain section straight to About. Snap is
-	// suspended for the duration so the region `scroll-snap-stop`s don't catch
+	// Leave the pinned brain section for About. This is the mobile section bar's
+	// ↓ (what its › becomes on the last region) — the only explicit way out now
+	// that the skip pill is gone; everywhere else you just keep scrolling. Snap
+	// is suspended for the duration so the region `scroll-snap-stop`s don't catch
 	// the jump partway, then restored once the smooth scroll settles.
 	function skipIntro() {
 		const el = document.getElementById('about');
@@ -507,7 +559,10 @@
 		const k = order.indexOf(key);
 		if (k < 0) return;
 		const b = (k + 0.5) / totalRegions;
-		jumpTo((ZOOM_END + b * dwell) * innerHeight);
+		jumpTo((ZOOM_END + b * dwell) * vhPx, true);
+		pendingRegion = key;
+		clearTimeout(pendingTimer);
+		pendingTimer = setTimeout(() => (pendingRegion = null), 150);
 	}
 
 	// Move one region forward/back (wraps). This is what the mobile section bar's
@@ -516,10 +571,18 @@
 	// The regions are a LINE, not a loop: going forward off the end continues to
 	// About (the section that follows the pin), and going back off the front
 	// returns to the hero. Wrapping around would strand you in the pinned
-	// section with no way out but the skip pill.
-	$: atLastRegion = regionIndex >= totalRegions - 1;
+	// section with no way out.
+	//
+	// Both step from `activeIndex` — the region ON SCREEN — not from
+	// `regionIndex`, which is raw scroll position. Those disagree whenever you
+	// scroll part-way back without landing on a beat: the pane still shows, say,
+	// Work Experience while `regionIndex` has already rounded down to 0. Stepping
+	// from the raw value then read `0 - 1`, so ‹ flung you out to the hero
+	// instead of going to the first region, and the idle guard corrected on top
+	// of that. `activeIndex` is what you're looking at, so it's what ‹ › mean.
+	$: atLastRegion = activeIndex >= totalRegions - 1;
 	function stepRegion(dir) {
-		const k = regionIndex + dir;
+		const k = activeIndex + dir;
 		if (k >= totalRegions) return skipIntro();
 		if (k < 0) {
 			return jumpTo(0);
@@ -791,8 +854,8 @@
 						{#key active}
 							<div
 								class="w-full"
-								in:fly={{ x: slideDir * 90, duration: 320, easing: cubicOut }}
-								out:fly={{ x: slideDir * -90, duration: 220, easing: cubicOut }}
+								in:fly={{ x: slideDir * 90, duration: 210, easing: cubicOut }}
+								out:fly={{ x: slideDir * -90, duration: 140, easing: cubicOut }}
 							>
 								<!-- ── MOBILE section bar. On a phone the three regions have no
 								     visible "there's more over here" cue, so they get an explicit
@@ -1000,21 +1063,6 @@
 		</div>
 
 
-		<!-- Skip button — jump past the whole brain section to About. Pinned
-		     bottom-right, fades in with the brain. -->
-		<button
-			type="button"
-			class="pointer-events-auto absolute bottom-3 right-3 z-40 inline-flex cursor-pointer items-center gap-1.5 rounded-full border-[3px] border-charcoal bg-white px-3 py-1.5 text-xs font-extrabold text-charcoal shadow-cartoon-sm hover:-translate-y-0.5 sm:bottom-6 sm:right-6 sm:px-4 sm:py-2 sm:text-sm {brainInteractive
-				? ''
-				: 'pointer-events-none'}"
-			style="opacity: {brainOpacity}; transition: opacity 0.3s ease, transform 0.2s ease;"
-			aria-hidden={!brainInteractive}
-			tabindex={brainInteractive ? 0 : -1}
-			on:click={skipIntro}
-		>
-			Skip to about me
-			<span aria-hidden="true">↓</span>
-		</button>
 	</div>
 
 	<!-- Scroll-snap markers — one invisible target per animated beat (hero +
@@ -1046,14 +1094,23 @@
      ═══════════════════════════════════════════════════════════════════ -->
 <section id="about" class="mx-auto max-w-4xl px-6 py-24">
 	<div class="grid gap-10 md:grid-cols-[16rem_1fr] md:items-center">
-		<div
-			class="mx-auto w-56 overflow-hidden rounded-cartoon border-[3px] border-charcoal bg-frontal-soft shadow-cartoon md:mx-0 md:w-full"
-		>
-			<img
-				src="{base}/james-avatar.svg"
-				alt="Illustrated portrait of James O'Halloran"
-				class="mx-auto block aspect-[4/5] w-full object-contain object-bottom p-4"
-			/>
+		<!-- A real photo among all the flat pastel art needs a reason to be
+		     there, so it's framed as a snapshot: white polaroid card, the same
+		     charcoal border and hard cartoon shadow as every other card, and a
+		     couple of degrees of tilt so it reads as pinned to the page rather
+		     than placed by a layout engine. It straightens on hover — the same
+		     "things move when you touch them" language the cards use. -->
+		<div class="mx-auto w-56 md:mx-0 md:w-full">
+			<div
+				class="-rotate-2 rounded-cartoon border-[3px] border-charcoal bg-white p-2.5 pb-8 shadow-cartoon transition-transform duration-300 ease-bouncy hover:rotate-0"
+			>
+				<img
+					src="{base}/sommo.jpg"
+					alt="James in sunglasses and a ball cap at an outdoor festival"
+					class="block aspect-square w-full rounded-sm border-2 border-charcoal object-cover"
+					loading="lazy"
+				/>
+			</div>
 		</div>
 
 		<div>
@@ -1062,7 +1119,7 @@
 				Hey, I'm James.
 			</h2>
 			<p class="mt-5 text-lg leading-relaxed text-charcoal-soft">
-				I’m a product-obsessed software engineer who loves building delightful, interactive web experiences. Most recently, I was on the Interactives team at Brilliant.org, crafting hands-on learning tools. On the side, I build my own web games: Kinda Hard Golf - (recently acquied), Squishy Billiards. I care deeply about great UX, clean architecture, and shipping things people actually love to play with.
+				I’m a software engineer from PEI, Canada. I love building delightful, interactive web experiences. Most recently, I was on the Interactives team at Brilliant.org, crafting hands-on learning tools. On the side, I build my own web games: Kinda Hard Golf - (recently acquied), Squishy Billiards. I care deeply about great UX, clean architecture, and shipping things people actually love to play with.
 			</p>
 			<a href="/about" class="btn-cartoon mt-7">More about me →</a>
 		</div>
