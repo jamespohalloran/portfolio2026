@@ -188,18 +188,45 @@
 
 	// Progress through the dwell (after the zoom completes) → region.
 	$: browse = Math.min(Math.max((t - ZOOM_END) / dwell, 0), 1);
-	$: regionIndex = totalRegions ? Math.min(Math.floor(browse * totalRegions), totalRegions - 1) : 0;
+	$: regionIndex = regionIndexAt(t);
+	// Same math, callable outside the reactive graph — the scroll listener below
+	// needs to ask "which region is `window.scrollY` in?" without waiting for the
+	// bound `scrollY` to propagate.
+	function regionIndexAt(pos) {
+		if (!totalRegions) return 0;
+		const b = Math.min(Math.max((pos - ZOOM_END) / dwell, 0), 1);
+		return Math.min(Math.floor(b * totalRegions), totalRegions - 1);
+	}
 
 	// A DELIBERATE jump (an arrow, a chip, a lobe) names its region up front, so
-	// the pane switches in the same frame as the tap rather than waiting for the
-	// bound `scrollY` to round-trip through the browser's scroll event. It is
-	// released on a short timer — by then the scroll has landed and `regionIndex`
-	// says the same thing, so the handover is invisible. Deliberately NOT cleared
-	// from `endJump`: that runs synchronously inside the jump, before the scroll
-	// event has updated `scrollY`, which would blink the old region back.
+	// the pane switches in the same frame as the tap instead of waiting for the
+	// bound `scrollY` to round-trip through the browser's scroll event.
+	//
+	// It is released by EVENTS, never by a timer. A timer has to guess how long
+	// the browser will take to report the new scroll position, and on mobile that
+	// guess is routinely wrong — scroll events are deferred, especially right
+	// after a programmatic scroll. When the timer won that race the pane fell
+	// back to the region the STALE scrollY still named, i.e. the one you started
+	// on: tap ›, see the next region, get bounced back. The two things that
+	// genuinely end the override are (a) the scroll arriving where we asked, and
+	// (b) the user starting their own gesture — both observable, neither timed.
 	let pendingRegion = null;
-	let pendingTimer;
 	$: active = brainInteractive ? (pendingRegion ?? order[regionIndex]) : null;
+
+	// (a) The scroll agrees → hand control back to it. Reads `window.scrollY`
+	// directly rather than the bound copy, since this IS the event that updates
+	// the bound copy.
+	function syncRegionToScroll() {
+		if (pendingRegion === null) return;
+		if (order[regionIndexAt(window.scrollY / vhPx)] === pendingRegion) pendingRegion = null;
+	}
+	// (b) The user took over. A wheel or a new touch means scroll is the truth
+	// again, whatever we were mid-way through asking for. (The arrow's own
+	// touchstart fires BEFORE its click, so this never eats the tap it belongs
+	// to — it clears an older override, then the click sets the new one.)
+	function releaseRegion() {
+		pendingRegion = null;
+	}
 
 	// As browsing begins the brain shrinks and flies to its parked position in
 	// the top-right corner, clearing the screen for the (info-rich) featured
@@ -341,7 +368,6 @@
 
 	onDestroy(() => {
 		clearTimeout(idleTimer);
-		clearTimeout(pendingTimer);
 		clearTimeout(snapRestoreTimer);
 		// onDestroy also runs during SSR, where rAF doesn't exist.
 		if (typeof window !== 'undefined') cancelAnimationFrame(easeRaf);
@@ -566,8 +592,10 @@
 		const b = (k + 0.5) / totalRegions;
 		jumpTo((ZOOM_END + b * dwell) * vhPx, true);
 		pendingRegion = key;
-		clearTimeout(pendingTimer);
-		pendingTimer = setTimeout(() => (pendingRegion = null), 150);
+		// The instant scroll above may already have landed; if so its event has
+		// fired (or will fire with a stale-but-equal value), so reconcile now
+		// rather than leaving the override up for no reason.
+		syncRegionToScroll();
 	}
 
 	// Move one region forward/back (wraps). This is what the mobile section bar's
@@ -632,7 +660,14 @@
 </script>
 
 <!-- Bind scroll + viewport size so the transition can be math-driven. -->
-<svelte:window bind:scrollY bind:innerHeight bind:innerWidth />
+<svelte:window
+	bind:scrollY
+	bind:innerHeight
+	bind:innerWidth
+	on:scroll={syncRegionToScroll}
+	on:wheel={releaseRegion}
+	on:touchstart={releaseRegion}
+/>
 
 <!-- ═══════════════════════════════════════════════════════════════════
      INTRO — pinned scroll-zoom + segment browse.
