@@ -1,7 +1,7 @@
 ---
 title: Welcome to johalloran.dev!
-date: '2020-02-16'
-description: "I'm James O'Halloran, a software developer from Prince Edward Island"
+date: "2020-02-16"
+description: "I'm James O'Halloran, a software developer from Prince Edward Island, Canada"
 ---
 
 Hey there! I'm James O'Halloran, a software developer from Prince Edward Island, Canada.

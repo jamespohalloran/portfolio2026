@@ -35,18 +35,26 @@
 	// the art), label, and the list of items the context pane cycles through.
 	// `href` on an item is optional — external links open in a new tab, internal
 	// ones navigate; the item card is only a link when it has one.
+	// Media, in the order the open panel prefers it: `video` > `gif` > `image` >
+	// nothing (the motion clips are a projects-only thing). `image` stays the
+	// still the closed row's thumbnail and the video's poster use, so a heavy
+	// clip is only ever fetched once its panel is open. `logo` is thumbnail-only
+	// — it's what the jobs show in their closed row, since blowing a logo up to
+	// panel size looks like an ad.
+
 	const sections = {
 		big: {
-			label: 'Projects',
+			label: 'Personal Projects',
 			color: '#a8e6cf',
 			items: [
 				{
 					title: 'Kinda Hard Golf',
 					details:
-						'A daily golf game I built solo in PixiJS over a few weeks. It struck a chord — reaching over 10,000 players — and after shipping 400 daily levels I sold the IP to a team of daily-game veterans.',
-					tags: ['10k+ players', 'Sold the IP', 'Solo-built'],
+						'A daily golf game I built solo in PixiJS over a few weeks. It struck a chord — over 4 million players to date and a steady 10k DAU — and after shipping 400 daily levels I sold the IP to a team of daily-game veterans.',
+					tags: ['4M+ players', '10k DAU', 'Sold the IP'],
 					href: 'https://kindahardgolf.com',
-					image: 'https://kindahardgolf.com/hero.jpg'
+					image: 'https://kindahardgolf.com/hero.jpg',
+					video: '/projects/kindahardgolf/gameplay.mp4'
 				},
 				{
 					title: 'Squishy Billiards',
@@ -54,52 +62,61 @@
 						'Pool, with a gooey chaotic twist and fresh daily levels. A physics playground I built to see if lightning could strike twice.',
 					tags: ['Daily levels', 'Physics toy'],
 					href: 'https://squishybilliards.com',
-					image: 'https://squishybilliards.com/hero.jpg'
+					image: 'https://squishybilliards.com/hero.jpg',
+					video: '/projects/squishybilliards/squishy-billiards-gameplay.mp4'
 				},
 				{
 					title: 'Miner Meltdown',
 					details:
-						'A multiplayer sabotage/mining game I built solo and shipped on Steam over several years — later selling the IP.',
-					tags: ['Steam', 'Multiplayer', 'Sold the IP'],
+						'A multiplayer sabotage/mining game I built solo and shipped on Steam over several years, growing it to 25,000+ players on a shoestring budget before selling the IP in 2020.',
+					tags: ['Steam', '25k+ players', 'Sold the IP in 2020'],
 					href: 'https://store.steampowered.com/app/426190/Miner_Meltdown/',
-					image: null // TODO: drop a screenshot in /static/projects and set the path
-				},
-				{
-					title: 'DraftOrders.com',
-					details:
-						'A quirky little tool that generates fantasy draft orders with some pizzazz. Built with Next.js, TypeScript & MobX.',
-					tags: ['Next.js', 'MobX'],
-					href: 'https://draftorders.com',
-					image: '/posts/introducing-draftorders/screenshot.png'
+					image: '/projects/minermeltdown/minermeltdown.png',
+					gif: '/projects/minermeltdown/gameplay.gif'
 				}
 			]
 		},
 		middle: {
-			label: 'Experience',
+			label: 'Work Experience',
 			color: '#ffb59e',
 			items: [
 				{
 					title: 'Brilliant.org',
+					role: 'Senior Software Engineer, Interactives',
+					period: 'Sept 2025 — Present',
 					details:
-						'Architected a massive, scalable CMS powering Brilliant’s interactive learning content.',
-					tags: ['CMS', 'Scale']
+						'Building the interactive learning experiences that make complex STEM concepts click — designing them to be robust, flexible and AI-interoperable so the same interactive works across wildly different lesson formats.',
+					tags: ['Interactives', 'STEM', 'AI-interoperable'],
+					logo: '/logos/brilliant.png'
+				},
+				{
+					title: 'Iron Fox Games',
+					role: 'Staff Software Engineer · Team Lead, Web',
+					period: 'Mar 2024 — Sept 2025',
+					details:
+						'Led the web team building games for Poki.com in TypeScript, PixiJS, Three.js and React — played by millions globally. Spearheaded a rebuild of the team’s tech stack that cut load times 10×.',
+					tags: ['Team lead', 'PixiJS / Three.js', '10× faster loads'],
+					logo: '/logos/iron_fox_games_logo.jpeg'
 				},
 				{
 					title: 'Forestry.io / TinaCMS',
+					role: 'Senior Software Engineer · Team Lead, Enterprise',
+					period: 'Oct 2017 — Dec 2023',
 					details:
-						'Built developer tooling bridging fast, well-engineered sites and content editing that non-developers can actually use.',
-					tags: ['DevTools', 'Open source']
+						'Led a remote team of 5 building a SaaS Content API on React/TypeScript, GraphQL, Node.js, AWS and DynamoDB, plus the enterprise layer around it — SSO, RBAC and audit logging. Developer tooling that bridged fast, well-engineered sites and editing non-developers could actually use.',
+					tags: ['DevTools', 'GraphQL', 'SSO / RBAC'],
+					logo: '/logos/tinacms.jpg'
+				},
+				{
+					title: 'Earlier work',
+					role: 'Adeptio · Telos Entertainment · SwiftRadius',
+					period: '2011 — 2015',
+					details:
+						'A cloud-based marketing automation platform in ASP.NET at Adeptio/Spokefire; “My Ocean”, an educational Unity3D game for National Geographic at Telos; and iOS/BlackBerry prototypes for the provincial government at SwiftRadius.',
+					tags: ['ASP.NET', 'Unity3D', 'Mobile'],
+					logo: '/logos/telos.jpg'
 				}
 			]
-		},
-		bottom: {
-			label: 'Writing',
-			color: '#fceab1',
-			items: recentPosts.map((p) => ({
-				title: p.title,
-				details: p.description,
-				href: `/blog/${p.slug}`
-			}))
 		}
 	};
 	// --- Scroll transition state -----------------------------------------
@@ -132,7 +149,7 @@
 	// --- Scroll-driven region browse -------------------------------------
 	// Scrolling walks through the REGIONS (segments) only. The items within a
 	// region are NOT scroll-driven — you expand them in the accordion.
-	const order = ['big', 'middle', 'bottom'];
+	const order = ['big', 'middle'];
 	$: totalRegions = order.length;
 
 	// Viewports of scroll per region. Half a viewport is about one comfortable
@@ -496,7 +513,7 @@
 	// Each region also gets a real anchor element parked at its scroll beat (see
 	// `.region-anchor` below), so /#projects — the header's Projects link — drops
 	// you straight onto the Projects region of the brain, no JS required.
-	const REGION_ID = { big: 'projects', middle: 'experience', bottom: 'writing' };
+	const REGION_ID = { big: 'projects', middle: 'experience' };
 	function onKey(event, key) {
 		if (event.key === 'Enter' || event.key === ' ') {
 			event.preventDefault();
@@ -531,13 +548,22 @@
 				fetchpriority="high"
 			/>
 
-			<div
-				class="absolute inset-x-0 bottom-0 flex flex-col items-center gap-4 bg-gradient-to-t from-cream via-cream/70 to-transparent px-6 pb-10 pt-28 text-center"
-			>
-				<p class="max-w-md text-2xl font-extrabold leading-tight text-charcoal sm:text-3xl">
-					Scroll to zoom into James's brain.
+			<!-- The prompt is a pill in the same corner, and cut from exactly the
+			     same cloth as the "Skip to about me" pill below — same radius,
+			     border, shadow and type scale. The two never coexist (this one
+			     fades out as the skip pill fades in, both driven by `reveal`), so
+			     sharing a corner reads as one pill handing off to the other rather
+			     than as clutter. The ↓ rides inside the pill; `leading-none` is
+			     what actually centres it — the glyph sits high in its line box, so
+			     flex-centring alone still leaves it floating above the text's
+			     optical centre. -->
+			<div class="absolute bottom-3 right-3 sm:bottom-6 sm:right-6">
+				<p
+					class="inline-flex items-center gap-1.5 rounded-full border-[3px] border-charcoal bg-white px-3 py-1.5 text-xs font-extrabold text-charcoal shadow-cartoon-sm sm:px-4 sm:py-2 sm:text-sm"
+				>
+					Scroll to see what's in James' head.
+					<span class="animate-bounce text-sm leading-none sm:text-base" aria-hidden="true">↓</span>
 				</p>
-				<span class="animate-bounce text-3xl" aria-hidden="true">↓</span>
 			</div>
 		</div>
 
@@ -560,15 +586,13 @@
 				style="fill-rule:evenodd;clip-rule:evenodd;stroke-linecap:round;stroke-linejoin:round;stroke-miterlimit:1.5;"
 			>
 				<g id="Brain">
-					<!-- ── BOTTOM → Writing (yellow) ─────────────────────── -->
+					<!-- ── BOTTOM (yellow) — art only. The cerebellum has no region of
+					     its own anymore (Writing lives in the blog section below), so it
+					     is drawn but never clickable: no role, no handlers, no pulse. -->
 					<g
-						class="brain-seg {segClass('bottom', active)}"
+						class="brain-seg-static"
 						transform="matrix(0.237131,0,0,0.237131,2069.084103,1202.395851)"
-						role="button"
-						tabindex="0"
-						aria-label="Show Writing"
-						on:click={() => goToRegion('bottom')}
-						on:keydown={(e) => onKey(e, 'bottom')}
+						aria-hidden="true"
 					>
 						<path
 							d="M2593.346,2682.147C2594.775,2720.02 2627.413,2915.037 2909.232,2902.004C2905.615,2906.441 2884.338,2924.401 2897.43,2944.334C2944.206,3015.552 3184.955,3298.358 3220.886,3314.315C3294.094,3346.827 3422.519,3267.269 3425.262,3252.638C3429.856,3228.136 3350.516,3039.081 3324.619,2986.984C3302.892,2943.274 3028.502,2616.685 3003.544,2604.744C2916.496,2563.094 2789.717,2468.088 2689.817,2538.566C2586.416,2611.513 2591.995,2668.375 2593.346,2682.147Z"
@@ -718,7 +742,7 @@
 							{@const on = key === active}
 							<button
 								type="button"
-								class="flex items-center gap-1.5 rounded-full px-2 py-1 text-xs font-bold uppercase tracking-widest transition-colors {on
+								class="flex cursor-pointer items-center gap-1.5 rounded-full px-2 py-1 text-xs font-bold uppercase tracking-widest transition-colors {on
 									? 'text-charcoal'
 									: 'text-charcoal/35 hover:text-charcoal/60'}"
 								aria-current={on}
@@ -821,28 +845,86 @@
 									{#each items as item, i (item.title)}
 										{@const open = i === openIndex}
 										<div class="border-b-[3px] border-charcoal last:border-b-0">
+											<!-- A closed row still has to sell the item, so it carries a
+											     thumbnail and a one-line blurb. Items with no artwork get a
+											     lettered tile in the region's colour rather than a hole. -->
 											<button
 												type="button"
-												class="flex w-full items-center gap-2.5 px-3.5 py-2.5 text-left transition-colors {open
+												class="flex w-full cursor-pointer items-center gap-2.5 px-3.5 py-2.5 text-left transition-colors {open
 													? ''
 													: 'hover:bg-cream'}"
 												aria-expanded={open}
 												style={open ? `background:${s.color};` : ''}
 												on:click={() => toggleItem(i)}
 											>
-												<span
-													class="h-3 w-3 shrink-0 rounded-full ring-2 ring-charcoal"
-													style="background:{open ? 'white' : 'transparent'};"
-												></span>
-												<span class="flex-1 text-sm font-extrabold leading-snug text-charcoal">
-													{item.title}
+												{#if imgSrc(item.image ?? item.logo)}
+													<!-- Hero art when there is any, else the company logo
+													     (`logo` exists for the items with no artwork of their
+													     own). It stays put when the row opens — the header
+													     should read the same open or closed. `contain`, not
+													     `cover`: aspect ratios vary wildly and cropping slices
+													     titles off. The tile stays white — the region colour
+													     behind a letterboxed image muddied both. -->
+													<img
+														src={imgSrc(item.image ?? item.logo)}
+														alt=""
+														class="acc-thumb object-contain"
+														loading="lazy"
+													/>
+												{:else}
+													<span
+														class="acc-thumb flex items-center justify-center text-sm font-extrabold text-charcoal"
+														style="background:{s.color};"
+														aria-hidden="true">{item.title.slice(0, 1)}</span
+													>
+												{/if}
+												<span class="min-w-0 flex-1">
+													<span class="block text-sm font-extrabold leading-snug text-charcoal">
+														{item.title}
+													</span>
+													{#if !open}
+														<!-- A job's one-line tease is its title + dates, not the
+														     blurb: that's what you actually scan a résumé for. -->
+														<span
+															class="mt-0.5 line-clamp-1 text-xs leading-snug text-charcoal-soft"
+														>
+															{item.role ? `${item.role} · ${item.period}` : item.details}
+														</span>
+													{/if}
 												</span>
 												<span class="acc-sign" aria-hidden="true">{open ? '−' : '+'}</span>
 											</button>
 
 											{#if open}
 												<div class="border-t-[3px] border-charcoal">
-													{#if imgSrc(item.image)}
+													{#if item.video}
+														<!-- Gameplay beats a still, so a project's clip wins over
+														     its hero image. Muted + inline so phones will actually
+														     autoplay it; the clip is the ambience, not something
+														     you're meant to scrub, hence no controls. Deliberately
+														     NOT `cover` — the current capture is portrait, and
+														     cropping it to this box would leave a sliver. -->
+														<!-- svelte-ignore a11y-media-has-caption -->
+														<video
+															src={base + item.video}
+															poster={imgSrc(item.image)}
+															class="h-36 w-full bg-charcoal object-contain md:h-56"
+															autoplay
+															muted
+															loop
+															playsinline
+															preload="metadata"
+														></video>
+													{:else if item.gif}
+														<!-- Same slot, but a GIF: it loops on its own, so it's an
+														     <img>. Only mounted while the panel is open, which is
+														     what keeps its weight off the closed rows. -->
+														<img
+															src={base + item.gif}
+															alt="{item.title} gameplay"
+															class="h-36 w-full bg-charcoal object-contain md:h-56"
+														/>
+													{:else if imgSrc(item.image)}
 														<!-- `contain`, not `cover`: these are hero images with
 														     titles baked in, and cover was slicing the wordmark
 														     off the top. Any letterboxing fills with the region's
@@ -856,6 +938,12 @@
 														/>
 													{/if}
 													<div class="px-3.5 py-3">
+														{#if item.role}
+															<p class="mb-1.5 text-xs font-extrabold leading-snug text-charcoal">
+																{item.role}
+																<span class="block font-bold text-charcoal-soft">{item.period}</span>
+															</p>
+														{/if}
 														<p class="line-clamp-3 text-sm leading-normal text-charcoal-soft md:line-clamp-none">
 															{item.details}
 														</p>
@@ -894,7 +982,7 @@
 		     bottom-right, fades in with the brain. -->
 		<button
 			type="button"
-			class="pointer-events-auto absolute bottom-3 right-3 z-40 inline-flex items-center gap-1.5 rounded-full border-[3px] border-charcoal bg-white px-3 py-1.5 text-xs font-extrabold text-charcoal shadow-cartoon-sm hover:-translate-y-0.5 sm:bottom-6 sm:right-6 sm:px-4 sm:py-2 sm:text-sm {brainInteractive
+			class="pointer-events-auto absolute bottom-3 right-3 z-40 inline-flex cursor-pointer items-center gap-1.5 rounded-full border-[3px] border-charcoal bg-white px-3 py-1.5 text-xs font-extrabold text-charcoal shadow-cartoon-sm hover:-translate-y-0.5 sm:bottom-6 sm:right-6 sm:px-4 sm:py-2 sm:text-sm {brainInteractive
 				? ''
 				: 'pointer-events-none'}"
 			style="opacity: {brainOpacity}; transition: opacity 0.3s ease, transform 0.2s ease;"
@@ -952,10 +1040,7 @@
 				Hey, I'm James.
 			</h2>
 			<p class="mt-5 text-lg leading-relaxed text-charcoal-soft">
-				I'm a software developer from Prince Edward Island who can't stop starting projects. Most
-				recently I built and sold two daily games — Kinda Hard Golf and Squishy Billiards — and
-				before that I spent years on developer tooling and content platforms. I like shipping
-				strange little things and writing about what I learn.
+				I’m a product-obsessed software engineer who loves building delightful, interactive web experiences. Most recently, I was on the Interactives team at Brilliant.org, crafting hands-on learning tools. On the side, I build my own web games: Kinda Hard Golf - (recently acquied), Squishy Billiards. I care deeply about great UX, clean architecture, and shipping things people actually love to play with.
 			</p>
 			<a href="/about" class="btn-cartoon mt-7">More about me →</a>
 		</div>
@@ -1043,6 +1128,12 @@
 	/* Brain segments. NO transform-box/transform-origin here — the <g>s carry
 	   the art's matrix() positioning transform and those props would break it.
 	   (So the clickable affordance is opacity/filter only, never a transform.) */
+	/* The one lobe with no region behind it — inert, and dimmed alongside the
+	   others so it never reads as a target you failed to hit. */
+	.brain-seg-static {
+		pointer-events: none;
+		opacity: 0.28;
+	}
 	.brain-seg {
 		cursor: pointer;
 		transition:
@@ -1115,6 +1206,17 @@
 		transform: translateY(-1px);
 	}
 
+	/* Preview thumbnail on a CLOSED accordion row. Fixed box so every row is the
+	   same height whether the item ships artwork or a lettered fallback. */
+	.acc-thumb {
+		height: 2.25rem;
+		width: 3rem;
+		flex-shrink: 0;
+		border: 2px solid var(--color-charcoal);
+		border-radius: 0.4rem;
+		background: white;
+	}
+
 	/* Accordion open/close sign. */
 	.acc-sign {
 		display: flex;
@@ -1133,6 +1235,7 @@
 
 	/* Region prev/next arrows (mobile section bar). */
 	.nav-arrow {
+		cursor: pointer;
 		display: flex;
 		height: 2.25rem;
 		width: 2.25rem;

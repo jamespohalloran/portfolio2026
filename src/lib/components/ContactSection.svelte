@@ -15,7 +15,7 @@
 		<h2
 			class="text-center text-3xl font-extrabold uppercase tracking-tight text-charcoal sm:text-4xl"
 		>
-			Want some strange stuff built?
+			Want something cool built?
 		</h2>
 
 		<div class="mt-12 flex flex-col items-center gap-8 md:flex-row md:items-start md:gap-6">
