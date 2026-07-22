@@ -1,7 +1,7 @@
 <script>
 	// Resolves static assets correctly under any deploy base path ('' by default).
 	import { base } from '$app/paths';
-	import { onDestroy } from 'svelte';
+	import { onDestroy, onMount } from 'svelte';
 	import { afterNavigate } from '$app/navigation';
 	import { fly } from 'svelte/transition';
 	import { cubicOut } from 'svelte/easing';
@@ -310,8 +310,16 @@
 	// SMOOTHED copy toward the target each frame decouples the animation from
 	// how finely the browser happens to report scroll. The zoom itself still
 	// tracks raw scroll 1:1 (via dishScale) — only the settle pose is damped.
+	//
+	// It is BYPASSED while one of our own jumps is animating. A jump already
+	// drives the scroll frame by frame, so `settle` is smooth on its own there —
+	// filtering it anyway meant two animations of different lengths running at
+	// once (the 1.9s scroll tween and this ~200ms lag filter), with the brain's
+	// scale mixing a term that tracks scroll exactly (dishScale) with one that
+	// trails it. That mismatch is the wobble on the way back to the hero.
 	let settleSmooth = 0;
 	let easeRaf = 0;
+	let easeLast = 0;
 	$: ease(settle);
 	function ease(target) {
 		if (typeof window === 'undefined') {
@@ -319,13 +327,23 @@
 			return;
 		}
 		cancelAnimationFrame(easeRaf);
-		const step = () => {
+		if (jumpRaf) {
+			settleSmooth = target; // the jump is the clock; don't add a second one
+			return;
+		}
+		easeLast = 0;
+		const step = (now) => {
 			const d = target - settleSmooth;
 			if (Math.abs(d) < 0.002) {
 				settleSmooth = target;
 				return;
 			}
-			settleSmooth += d * 0.13;
+			// Framerate-independent: a fixed per-frame fraction converged twice as
+			// fast on a 120Hz screen as on a 60Hz one, so the same motion read
+			// differently depending on the display.
+			const dt = easeLast ? Math.min(now - easeLast, 64) : 16.7;
+			easeLast = now;
+			settleSmooth += d * (1 - Math.pow(1 - 0.26, dt / 16.7));
 			easeRaf = requestAnimationFrame(step);
 		};
 		easeRaf = requestAnimationFrame(step);
@@ -368,6 +386,7 @@
 
 	onDestroy(() => {
 		clearTimeout(idleTimer);
+		clearTimeout(wheelLockTimer);
 		// onDestroy also runs during SSR, where rAF doesn't exist.
 		if (typeof window !== 'undefined') cancelAnimationFrame(easeRaf);
 	});
@@ -381,21 +400,14 @@
 	// so there is nothing left to race: no snap-mode juggling, no suspend/restore
 	// window, no guessed delays.
 	//
-	// "Beats" are the rest positions in order: the hero, then one per region.
-	$: beatTs = snapTs;
-	// Snapping applies inside the pin only. Past the last beat the page is a
-	// normal document and must scroll normally, or leaving the brain fights you.
-	// This margin is the EXIT stickiness: stop short of it and you're pulled back
-	// onto the last region, so drifting out takes a deliberate scroll. Don't push
-	// it far — every bit of it is distance you travel into About before the page
-	// decides to yank you back, which reads as a fight rather than as grip.
-	$: snapEnd = beatTs[beatTs.length - 1] + 0.25;
-
-	// How far between two beats you must travel before the far one wins. Plain
-	// nearest-beat rounding is 0.5, i.e. a quarter-viewport nudge flips regions
-	// and it's easy to pass one by accident. Above 0.5 the beat you're resting on
-	// keeps hold of you until you've clearly committed to leaving it.
-	const STICK = 0.65;
+	// "Beats" are the rest positions in order: the hero, one per region, and
+	// finally the top of About. That last one is what gives LEAVING the section
+	// the same friction as moving inside it — previously the forward swipe off
+	// the last region wasn't captured at all, so it fell through to the browser
+	// and you shot out with full momentum while every other step needed a
+	// deliberate push. Now every step costs exactly one swipe, including the exit.
+	$: pinEnd = introVH / 100; // where the pinned container ends and About begins
+	$: beatTs = [...snapTs, pinEnd];
 	function nearestBeat(pos) {
 		let best = 0;
 		for (let i = 1; i < beatTs.length; i++) {
@@ -415,10 +427,212 @@
 	// Projects. Requiring two consecutive samples at the same position means we
 	// only ever settle from a genuine standstill.
 	let lastIdleY = -1;
-	// Where the last gesture came to rest. Used to enforce "one flick moves you at
-	// most one beat" — the job `scroll-snap-stop: always` used to do, except this
-	// version behaves identically in every browser.
-	let restBeat = null;
+	// --- Gesture paging ----------------------------------------------------
+	// Inside the pin the gesture is taken over completely: `preventDefault` stops
+	// the native scroll, so native MOMENTUM never starts, and one swipe moves
+	// exactly one section. Everything before this let the page scroll freely and
+	// corrected afterwards — which is why it would coast for a second or two and
+	// then get yanked somewhere. You cannot fix that by tuning thresholds; the
+	// correction is always after the fact. Not scrolling in the first place is
+	// the only way sections read as discrete.
+	//
+	// At either end of the beat list we deliberately DON'T capture, so the swipe
+	// falls through to the browser and you scroll out of the section normally.
+	const ZOOM_MS = 1900; // hero ⇄ first region: the zoom transition's duration
+	const SWIPE_PX = 26; // finger travel before a swipe counts
+	const WHEEL_PX = 32; // accumulated wheel delta before a notch counts
+	// A trackpad flick emits a decaying stream of wheel events for up to a second
+	// and a half, so one flick must not step more than once. Silence releases the
+	// lock — but silence ALONE deadlocks: every event re-arms the timer, so a
+	// stream that never goes quiet (a held two-finger scroll, overlapping flicks)
+	// would freeze the section. The old fix was a hard 700ms ceiling, and that is
+	// what made one swipe travel two sections: 700ms is shorter than both a
+	// trackpad's momentum tail and the 1.9s zoom, so the lock lifted mid-flight
+	// and the SAME flick's decaying tail immediately bought a second step.
+	//
+	// Time can't tell "still coasting" from "pushed again", so don't ask it to —
+	// ask the deltas. But "the deltas are rising" is NOT enough on its own: a hard
+	// flick ramps up over its first several events, and the step fires on the
+	// first ~32px of it, so the rest of that same ramp read as a second push and
+	// carried you a section further. A gesture has to be seen DYING before
+	// anything is allowed to count as new.
+	//
+	// So the lock lifts early only after both, in order:
+	//   1. spent — a magnitude drops under a fraction of this gesture's peak, i.e.
+	//      the flick has decayed. A ramp-up can never satisfy this.
+	//   2. rising — with only post-decay samples in hand, the newer window
+	//      averages above the older one: a genuine new push.
+	// Constant-magnitude input (a mouse wheel's notches) satisfies neither and
+	// doesn't need to — its notches are spaced far enough apart for the quiet
+	// timer, and the backstop below covers a sustained one.
+	const WHEEL_QUIET = 140; // ms of no wheel events → next step allowed
+	const WHEEL_SAMPLES = 8; // magnitudes per comparison window
+	const WHEEL_DECAY = 0.35; // fraction of peak that counts as "this flick is over"
+
+	// Capture stops just BEFORE the exit beat, so once you've landed on About the
+	// page scrolls normally; swiping back up re-enters and steps to the last
+	// region.
+	$: inPin = t < pinEnd - 0.02;
+	let touchStartY = 0;
+	let touchDY = 0;
+	let touchStepped = false;
+	let wheelAcc = 0;
+	let wheelLock = false;
+	let wheelLockTimer;
+	let wheelMags = [];
+	let wheelPeak = 0; // largest magnitude seen since the lock engaged
+	let wheelSpent = false; // ...and whether it has since decayed away
+	// Liveness backstop, not a step timer: a stream that neither goes quiet nor
+	// rises (a held two-finger scroll, a fast mouse-wheel spin) would otherwise
+	// hold the lock forever. Unlike the old ceiling this is armed from the END of
+	// the jump it belongs to and is comfortably longer than any momentum tail, so
+	// it can never hand the same flick a second step.
+	// It must outlast the longest momentum tail a trackpad can produce (~1.5s),
+	// measured from the FLICK, not from the animation — otherwise it just
+	// reintroduces the old bug on whichever step animates fastest. The hero step
+	// takes 1900ms and so was always covered; a region hop takes 420ms, and its
+	// backstop was landing mid-tail, which is why projects → experience kept
+	// coasting on into About while hero → projects behaved.
+	let wheelMaxTimer;
+	const WHEEL_TAIL = 1900; // ms a step stays locked, at minimum
+	function releaseWheel() {
+		clearTimeout(wheelLockTimer);
+		clearTimeout(wheelMaxTimer);
+		wheelLock = false;
+		wheelAcc = 0;
+		wheelMags = [];
+		wheelPeak = 0;
+		wheelSpent = false;
+	}
+	// True once we've seen a full two windows AND the newer one is decisively
+	// bigger — i.e. the input is growing, which momentum never does.
+	//
+	// "Decisively" matters. The end of a tail is a handful of 1s, 2s and 3s, and
+	// over eight-sample windows that noise crosses a bare `>` often enough to
+	// smuggle a second step out of a dead gesture. A real push is an order of
+	// magnitude louder than a tail's last gasps, so ask for both a clear ratio
+	// and an absolute floor.
+	const WHEEL_RISE = 1.6; // newer window must beat the older one by this much
+	const WHEEL_FLOOR = 10; // ...and be this loud in absolute terms
+	function wheelIsRising() {
+		if (wheelMags.length < WHEEL_SAMPLES * 2) return false;
+		const avg = (a) => a.reduce((s, v) => s + v, 0) / a.length;
+		const newer = avg(wheelMags.slice(WHEEL_SAMPLES));
+		return newer > avg(wheelMags.slice(0, WHEEL_SAMPLES)) * WHEEL_RISE && newer > WHEEL_FLOOR;
+	}
+
+	// The beat a gesture steps FROM. While a jump is in flight that is its
+	// DESTINATION, not the interpolated position it happens to be passing
+	// through: mid-animation `nearestBeat(t)` still names the beat you're leaving
+	// for most of the trip, so a second swipe would re-target the jump already
+	// running and restart it. Harmless when jumps were ~300ms and you rarely
+	// interrupted them; with the ~1.9s zoom, interrupting is the normal case and
+	// it read as the section refusing to advance. Otherwise: derived from actual
+	// position, which can't go stale the way stored state can.
+	const currentBeat = () => (jumpRaf && jumpBeat !== null ? jumpBeat : nearestBeat(t));
+
+	// True when `dir` from here lands on another beat — i.e. when this section
+	// still owns the gesture rather than handing it to the browser.
+	function canStep(dir) {
+		const k = currentBeat() + dir;
+		return k >= 0 && k < beatTs.length;
+	}
+	function stepBeat(dir) {
+		const k = currentBeat() + dir;
+		if (k < 0 || k >= beatTs.length) return;
+		jumpTo(beatTs[k] * vhPx);
+	}
+
+	// Registered by hand, NOT through `<svelte:window on:…>`. Svelte 5 attaches
+	// wheel/touch listeners as PASSIVE and ignores the `|nonpassive` modifier
+	// there, which makes `preventDefault()` a silent no-op — the native scroll
+	// (and its momentum) ran anyway while `touchend` also stepped a beat, so two
+	// controllers fought over every gesture. `{ passive: false }` is the whole
+	// point of this section, so it has to be explicit.
+	onMount(() => {
+		const opts = { passive: false };
+		window.addEventListener('wheel', onWheel, opts);
+		window.addEventListener('touchstart', onTouchStart, { passive: true });
+		window.addEventListener('touchmove', onTouchMove, opts);
+		window.addEventListener('touchend', onTouchEnd, { passive: true });
+		window.addEventListener('touchcancel', onTouchEnd, { passive: true });
+		return () => {
+			window.removeEventListener('wheel', onWheel, opts);
+			window.removeEventListener('touchstart', onTouchStart);
+			window.removeEventListener('touchmove', onTouchMove, opts);
+			window.removeEventListener('touchend', onTouchEnd);
+			window.removeEventListener('touchcancel', onTouchEnd);
+		};
+	});
+
+	function onTouchStart(event) {
+		releaseRegion();
+		touchStartY = event.touches[0].clientY;
+		touchDY = 0;
+		touchStepped = false;
+	}
+	function onTouchMove(event) {
+		// Note: NOT gated on `brainInteractive`. The hero is beat 0, and the
+		// hero → first region flick is the longest one — leaving it uncaptured is
+		// exactly the swipe that used to coast past Personal Projects.
+		if (!inPin) return;
+		touchDY = event.touches[0].clientY - touchStartY;
+		// Negative dy = finger moving up = scrolling forward.
+		// Same rule as the wheel: while one of our jumps is animating, nothing else
+		// may touch the scroll position — not even a gesture that has nowhere left
+		// to step. `stepBeat` no-ops past the ends, so a swipe that can't step is
+		// simply absorbed instead of turning into a native scroll that fights the
+		// running rAF.
+		if (!jumpRaf && !canStep(touchDY < 0 ? 1 : -1)) return; // at an end: scroll out
+		event.preventDefault(); // no native scroll ⇒ no momentum to fight later
+	}
+	function onTouchEnd() {
+		if (!inPin || touchStepped) return;
+		if (Math.abs(touchDY) < SWIPE_PX) return; // too small to count as a swipe
+		touchStepped = true; // one finger-down..finger-up is one step, always
+		stepBeat(touchDY < 0 ? 1 : -1);
+		touchDY = 0;
+	}
+	function onWheel(event) {
+		releaseRegion();
+		if (!inPin) return;
+		const dir = event.deltaY > 0 ? 1 : -1;
+		// While a step of ours is in flight we swallow the gesture even at the ends
+		// of the beat list. Letting it through there meant the browser scrolled
+		// natively while `jumpTo`'s rAF was writing a scroll position every frame —
+		// two writers, one scrollTop, which is the stutter you see swiping back to
+		// the hero (mid-jump `canStep(-1)` is false, so the tail escaped).
+		if (!wheelLock && !jumpRaf && !canStep(dir)) return; // at an end: scroll out
+		event.preventDefault();
+		clearTimeout(wheelLockTimer);
+		wheelLockTimer = setTimeout(releaseWheel, WHEEL_QUIET);
+		const mag = Math.abs(event.deltaY);
+		wheelMags.push(mag);
+		if (wheelMags.length > WHEEL_SAMPLES * 2) wheelMags.shift();
+		if (wheelLock) {
+			wheelPeak = Math.max(wheelPeak, mag);
+			if (!wheelSpent) {
+				// Still on the way up, or coasting near the peak: this is the gesture
+				// that already stepped. Nothing here can release the lock.
+				if (mag > wheelPeak * WHEEL_DECAY) return;
+				// It has died down. Judge what follows on its own samples only.
+				wheelSpent = true;
+				wheelMags = [];
+				return;
+			}
+			if (!wheelIsRising()) return; // still a tail, not a new push
+			releaseWheel();
+			wheelLockTimer = setTimeout(releaseWheel, WHEEL_QUIET);
+		}
+		if (!canStep(dir)) return;
+		wheelAcc += event.deltaY;
+		if (Math.abs(wheelAcc) < WHEEL_PX) return;
+		wheelAcc = 0;
+		wheelLock = true;
+		stepBeat(dir);
+		clearTimeout(wheelMaxTimer);
+		wheelMaxTimer = setTimeout(releaseWheel, Math.max(jumpMs, WHEEL_TAIL));
+	}
 	$: t, vhPx, queueIdleCheck();
 	function queueIdleCheck() {
 		if (typeof window === 'undefined') return;
@@ -428,6 +642,12 @@
 	// Scrolling has stopped. Settle onto a beat — which also enforces "never rest
 	// mid-zoom on a bare brain", since the hero and the first region are the only
 	// beats that stretch can round to.
+	// Gestures inside the pin are captured and always land exactly on a beat, so
+	// this is now only a safety net for scrolls that AREN'T gestures: keyboard,
+	// scrollbar drags, a restored scroll position, a hash link. It settles onto
+	// the nearest beat and nothing more — the one-beat clamp and the hysteresis
+	// that used to live here existed solely to police free scrolling, which no
+	// longer happens in this section.
 	function onScrollIdle() {
 		if (jumpRaf) return; // our own animation is still running
 		// Still moving (or momentum merely paused) → wait for a real standstill.
@@ -436,36 +656,8 @@
 			queueIdleCheck();
 			return;
 		}
-		const last = beatTs.length - 1;
-
-		if (t > snapEnd) {
-			// Below the pin. Leaving is only legitimate FROM the last beat — that's
-			// the deliberate exit. Any other resting point means one flick carried
-			// you through regions you never saw, so pull back to the next one.
-			// (This clamp has to live on THIS side of the early return: checking it
-			// only while still inside the pin is exactly how a hard flick used to
-			// sail through the whole section unchallenged.)
-			if (restBeat !== null && restBeat < last) return jumpTo(beatTs[restBeat + 1] * vhPx);
-			// Resting below the pin counts as resting AT the boundary, not as
-			// "unknown" — that way the same clamp governs flicking back up, instead
-			// of the first upward gesture being unlimited.
-			restBeat = last;
-			return;
-		}
-
-		let k = nearestBeat(t);
-		if (restBeat !== null && Math.abs(k - restBeat) > 1) {
-			k = restBeat + Math.sign(k - restBeat); // one flick, one beat
-		}
-		// Hysteresis: having landed nearer another beat isn't enough, you have to
-		// have covered STICK of the way there. Applied AFTER the one-beat clamp so
-		// it measures the gap you're actually being moved across.
-		if (restBeat !== null && k !== restBeat) {
-			const gap = Math.abs(beatTs[k] - beatTs[restBeat]);
-			if (gap > 0 && Math.abs(t - beatTs[restBeat]) < gap * STICK) k = restBeat;
-		}
-		restBeat = k;
-		const target = beatTs[k] * vhPx;
+		if (t >= pinEnd - 0.02) return; // at or below About: an ordinary document
+		const target = beatTs[nearestBeat(t)] * vhPx;
 		if (Math.abs(window.scrollY - target) < 2) return; // already there
 		jumpTo(target);
 	}
@@ -475,7 +667,8 @@
 	// motion is ours to cancel and reason about; iOS Safari in particular
 	// interrupts native smooth scrolls unpredictably.
 	let jumpRaf = 0;
-	let jumpCleanup = null;
+	let jumpBeat = null; // beat index a running jump is heading for
+	let jumpMs = 0; // duration of the jump that just started (see WHEEL_TAIL)
 
 	// `instant` skips the animation and sets the position in one go — the right
 	// mode for a REGION HOP, because between region beats nothing on screen is
@@ -492,29 +685,31 @@
 		const to = Math.max(0, Math.min(top, max));
 		const dist = Math.abs(to - from);
 		if (dist < 2) return;
-		// A deliberate jump DEFINES a new resting point. Without this the one-beat
-		// clamp in `onScrollIdle` would measure the next gesture against where you
-		// were before the jump — so two quick taps of › would be judged an
-		// overshoot and dragged back one region.
-		restBeat = to / vhPx <= snapEnd ? nearestBeat(to / vhPx) : beatTs.length - 1;
 		if (instant) {
 			// `behavior: 'instant'` is REQUIRED, not cosmetic: html carries
 			// `scroll-behavior: smooth`, which would otherwise animate this.
 			window.scrollTo({ top: to, behavior: 'instant' });
+			jumpBeat = null;
 			return;
 		}
-		const ms = Math.min(500, Math.max(190, dist * 0.42));
+		// Queue further steps against where this jump is GOING.
+		jumpBeat = nearestBeat(to / vhPx);
+		// The step between the hero and the first region plays the ENTIRE zoom —
+		// the signature move of the page — and it can't be timed by distance,
+		// because it (0.65vh) is barely longer than a plain region hop (0.5vh).
+		// So it gets its own duration. Note the zoom itself completes at ZOOM_END,
+		// only ~60% of the way through the step, so the visible zoom is ~60% of
+		// this number. THIS is the knob for "the zoom is too fast".
+		const crossesZoom = Math.min(from, to) / vhPx < ZOOM_END;
+		const ms = crossesZoom ? ZOOM_MS : Math.min(750, Math.max(420, dist * 0.85));
+		jumpMs = ms;
 		const t0 = performance.now();
 
-		// A real touch/wheel during the animation means the user has taken over.
-		const yield_ = () => endJump();
-		window.addEventListener('touchstart', yield_, { passive: true });
-		window.addEventListener('wheel', yield_, { passive: true });
-		jumpCleanup = () => {
-			window.removeEventListener('touchstart', yield_);
-			window.removeEventListener('wheel', yield_);
-		};
-
+		// NO "yield to the user" listeners here. Cancelling a jump part-way leaves
+		// the scroll stranded BETWEEN beats — the half-faded brain-in-the-head
+		// state. A new gesture supersedes the jump properly instead: every in-pin
+		// gesture routes through `stepBeat` → `jumpTo`, which calls `endJump`
+		// first and then animates to a real beat.
 		const step = (now) => {
 			const p = Math.min((now - t0) / ms, 1);
 			const eased = 1 - Math.pow(1 - p, 3); // cubic-out
@@ -529,15 +724,15 @@
 	function endJump() {
 		if (jumpRaf) cancelAnimationFrame(jumpRaf);
 		jumpRaf = 0;
-		if (jumpCleanup) jumpCleanup();
-		jumpCleanup = null;
+		jumpBeat = null;
+		jumpMs = 0;
 	}
 
 	// Leave the pinned brain section for About. This is the mobile section bar's
 	// ↓ (what its › becomes on the last region) — the only explicit way out now
 	// that the skip pill is gone; everywhere else you just keep scrolling. Snap
-	// This is a plain animated jump like any other; the idle settle sees `t` land
-	// past `snapEnd` and leaves it alone.
+	// A plain animated jump like any other; the idle settle sees `t` land at or
+	// below the exit beat and leaves it alone.
 	function skipIntro() {
 		const el = document.getElementById('about');
 		if (!el) return;
@@ -624,8 +819,6 @@
 	bind:innerHeight
 	bind:innerWidth
 	on:scroll={syncRegionToScroll}
-	on:wheel={releaseRegion}
-	on:touchstart={releaseRegion}
 />
 
 <!-- ═══════════════════════════════════════════════════════════════════
