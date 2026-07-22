@@ -520,6 +520,69 @@
 		jumpTo(beatTs[k] * vhPx);
 	}
 
+	// --- Keyboard paging ---------------------------------------------------
+	// Arrows have to go through `stepBeat` like every other gesture. Left to the
+	// browser they scroll by a fixed ~40px, which lands nowhere near a beat, so
+	// the idle guard hauls you back the moment you stop — a key press that reads
+	// as "nothing happened", or worse, as a bounce.
+	//
+	// Vertical keys walk the BEATS (hero → regions → out to About), horizontal
+	// ones walk the REGIONS — the same one-axis-one-meaning split the pane and
+	// the mobile ‹ › bar already use.
+	//
+	// `repeat` is ignored so holding a key can't machine-gun through the whole
+	// section: one press, one beat, exactly like one swipe or one wheel notch.
+	function onKeyDown(event) {
+		if (event.metaKey || event.ctrlKey || event.altKey) return;
+		if (event.repeat) return;
+		// A control that already acted on this key owns it — the lobes' own
+		// Enter/Space handler preventDefaults, and stepping a beat on top of the
+		// jump it just fired would fight it.
+		if (event.defaultPrevented) return;
+		// Typing, or driving a control with the keyboard, isn't navigation.
+		const el = event.target;
+		if (el?.closest?.('input, textarea, select, [contenteditable=""], [contenteditable="true"]'))
+			return;
+		// Space is "page down" only when it isn't "press the focused thing".
+		const onControl = !!el?.closest?.('button, a, [role="button"]');
+
+		const dir =
+			event.key === 'ArrowDown' || event.key === 'PageDown' || (event.key === ' ' && !onControl)
+				? 1
+				: event.key === 'ArrowUp' || event.key === 'PageUp'
+					? -1
+					: 0;
+		if (dir) {
+			if (!inPin || !canStep(dir)) return; // at an end: let the page scroll
+			event.preventDefault();
+			releaseRegion();
+			stepBeat(dir);
+			return;
+		}
+
+		// ‹ › across regions. Only once the brain is up and the regions exist —
+		// before that there is nothing horizontal to move through. `stepRegion`
+		// already handles falling off either end (back to the hero, on to About).
+		if (event.key === 'ArrowRight' || event.key === 'ArrowLeft') {
+			if (!brainInteractive || !inPin) return;
+			event.preventDefault();
+			stepRegion(event.key === 'ArrowRight' ? 1 : -1);
+			return;
+		}
+
+		// Home/End are "top of page" / "bottom of page" everywhere else; inside the
+		// pin the only sensible tops and bottoms are the hero and About.
+		if (event.key === 'Home' && inPin) {
+			event.preventDefault();
+			releaseRegion();
+			jumpTo(0);
+		} else if (event.key === 'End' && inPin) {
+			event.preventDefault();
+			releaseRegion();
+			skipIntro();
+		}
+	}
+
 	// Registered by hand, NOT through `<svelte:window on:…>`. Svelte 5 attaches
 	// wheel/touch listeners as PASSIVE and ignores the `|nonpassive` modifier
 	// there, which makes `preventDefault()` a silent no-op — the native scroll
@@ -533,12 +596,14 @@
 		window.addEventListener('touchmove', onTouchMove, opts);
 		window.addEventListener('touchend', onTouchEnd, { passive: true });
 		window.addEventListener('touchcancel', onTouchEnd, { passive: true });
+		window.addEventListener('keydown', onKeyDown, opts);
 		return () => {
 			window.removeEventListener('wheel', onWheel, opts);
 			window.removeEventListener('touchstart', onTouchStart);
 			window.removeEventListener('touchmove', onTouchMove, opts);
 			window.removeEventListener('touchend', onTouchEnd);
 			window.removeEventListener('touchcancel', onTouchEnd);
+			window.removeEventListener('keydown', onKeyDown, opts);
 		};
 	});
 
