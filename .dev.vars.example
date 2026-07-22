@@ -1,0 +1,21 @@
+# Runtime env for the /api/contact Pages Function.
+#
+# Local dev: copy to `.dev.vars` (gitignored) and run `npx wrangler pages dev build`.
+# Production: set these in the Pages project → Settings → Variables.
+#   - CF_EMAIL_TOKEN and TURNSTILE_SECRET must be added as *Secrets*.
+#   - The rest can be plain variables.
+
+# Cloudflare account that owns the sending domain (johalloran.dev).
+CF_ACCOUNT_ID=b8d2c50b4962807b56218182c14b9ef2
+
+# Where submissions are delivered.
+CONTACT_TO=james.ohalloran@mightypebble.com
+
+# Verified sender on an onboarded domain (johalloran.dev is enabled for sending).
+CONTACT_FROM=contact@johalloran.dev
+
+# SECRET — Cloudflare API token with the "Send Email" permission.
+CF_EMAIL_TOKEN=
+
+# SECRET — Turnstile widget secret key (pairs with VITE_TURNSTILE_SITEKEY).
+TURNSTILE_SECRET=
