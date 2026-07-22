@@ -405,6 +405,16 @@
 	}
 
 	let idleTimer;
+	// Position at the previous idle check. A debounce alone cannot tell "the
+	// scroll stopped" from "the scroll paused": iOS coalesces scroll events
+	// during momentum, and gaps longer than the debounce are routine. Acting on
+	// one of those pauses meant animating to a beat while momentum was still
+	// live — and a programmatic scroll does NOT cancel iOS momentum, so it
+	// resumed, carried past, and the next idle accepted that as a legal one-beat
+	// move. Net effect: flick from the top and sail straight through Personal
+	// Projects. Requiring two consecutive samples at the same position means we
+	// only ever settle from a genuine standstill.
+	let lastIdleY = -1;
 	// Where the last gesture came to rest. Used to enforce "one flick moves you at
 	// most one beat" — the job `scroll-snap-stop: always` used to do, except this
 	// version behaves identically in every browser.
@@ -420,6 +430,12 @@
 	// beats that stretch can round to.
 	function onScrollIdle() {
 		if (jumpRaf) return; // our own animation is still running
+		// Still moving (or momentum merely paused) → wait for a real standstill.
+		if (window.scrollY !== lastIdleY) {
+			lastIdleY = window.scrollY;
+			queueIdleCheck();
+			return;
+		}
 		const last = beatTs.length - 1;
 
 		if (t > snapEnd) {
