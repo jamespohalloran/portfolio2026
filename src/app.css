@@ -41,7 +41,13 @@
 
 @layer base {
 	html {
-		/* Smooth the scroll-driven brain reveal on the home page. */
+		/* Applies to PROGRAMMATIC scrolls and anchor jumps only — it does nothing
+		   for wheel/touch scrolling, so it never had any effect on the home page's
+		   scroll-driven brain reveal. It is kept for plain in-page anchor links,
+		   but the home page's own jumps opt out explicitly (`behavior: 'instant'`
+		   in `jumpTo`): they animate themselves frame by frame, and leaving this
+		   on turned every one of those frames into a competing browser-run smooth
+		   scroll that never reached its target before the next frame replaced it. */
 		scroll-behavior: smooth;
 	}
 

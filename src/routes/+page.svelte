@@ -2,6 +2,7 @@
 	// Resolves static assets correctly under any deploy base path ('' by default).
 	import { base } from '$app/paths';
 	import { onDestroy } from 'svelte';
+	import { afterNavigate } from '$app/navigation';
 	import { fly } from 'svelte/transition';
 	import { cubicOut } from 'svelte/easing';
 	import { posts } from '$lib/posts';
@@ -481,7 +482,7 @@
 		const dist = Math.abs(to - from);
 		if (dist < 2) return endJump();
 		if (instant) {
-			window.scrollTo(0, to);
+			window.scrollTo({ top: to, behavior: 'instant' });
 			return endJump(); // schedules the snap restore, giving the browser a beat
 		}
 		// Scale the duration with distance, within reason. This path is now only
@@ -501,7 +502,11 @@
 		const step = (now) => {
 			const p = Math.min((now - t0) / ms, 1);
 			const eased = 1 - Math.pow(1 - p, 3); // cubic-out
-			window.scrollTo(0, from + (to - from) * eased);
+			// `behavior: 'instant'` is REQUIRED, not cosmetic: html carries
+			// `scroll-behavior: smooth`, which would turn each of these per-frame
+			// positions into its own browser-run smooth scroll, all of them
+			// fighting each other and this loop.
+			window.scrollTo({ top: from + (to - from) * eased, behavior: 'instant' });
 			if (p < 1) jumpRaf = requestAnimationFrame(step);
 			else endJump();
 		};
@@ -592,8 +597,29 @@
 
 	// Each region also gets a real anchor element parked at its scroll beat (see
 	// `.region-anchor` below), so /#projects — the header's Projects link — drops
-	// you straight onto the Projects region of the brain, no JS required.
+	// you straight onto the Projects region of the brain even without JS.
 	const REGION_ID = { big: 'projects', middle: 'experience' };
+
+	// ...but WITH JS we have to re-issue that jump ourselves. The browser
+	// performs an anchor scroll while `scroll-snap-type` is still `y mandatory`,
+	// so the snap engine captures it and dumps you on the nearest brain beat —
+	// which is why the header's About link landed in the middle of the brain
+	// instead of on the About section. `jumpTo`/`goToRegion` suspend snapping
+	// first, so routing every hash through them is the only reliable path.
+	// Deferred a frame so we act after the browser's own (mis-snapped) scroll,
+	// not before it.
+	afterNavigate(({ to }) => {
+		const id = to?.url?.hash?.slice(1);
+		if (!id) return;
+		setTimeout(() => {
+			const key = Object.keys(REGION_ID).find((k) => REGION_ID[k] === id);
+			if (key) return goToRegion(key);
+			const el = document.getElementById(id);
+			// Instant, like a real anchor jump: animating here meant depending on
+			// rAF and leaving a window for the snap engine to interfere again.
+			if (el) jumpTo(el.getBoundingClientRect().top + window.scrollY, true);
+		}, 0);
+	});
 	function onKey(event, key) {
 		if (event.key === 'Enter' || event.key === ' ') {
 			event.preventDefault();
@@ -1121,7 +1147,6 @@
 			<p class="mt-5 text-lg leading-relaxed text-charcoal-soft">
 				I’m a software engineer from PEI, Canada. I love building delightful, interactive web experiences. Most recently, I was on the Interactives team at Brilliant.org, crafting hands-on learning tools. On the side, I build my own web games: Kinda Hard Golf - (recently acquied), Squishy Billiards. I care deeply about great UX, clean architecture, and shipping things people actually love to play with.
 			</p>
-			<a href="/about" class="btn-cartoon mt-7">More about me →</a>
 		</div>
 	</div>
 </section>

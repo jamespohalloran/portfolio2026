@@ -9,8 +9,13 @@
 	const nav = [
 		{ label: 'Home', href: '/', home: true },
 		// Projects lives inside the home page's brain — this drops you onto that
-		// region rather than a separate route.
+		// region rather than a separate route (/projects is an unbuilt stub).
 		{ label: 'Projects', href: '/#projects' },
+		// About is a REAL page. It deliberately isn't `/#about`: a hash link has
+		// to land inside the pinned, scroll-snapped brain section's coordinate
+		// space, where the snap engine competes for the same scroll — a route
+		// navigation sidesteps that entirely. The home page keeps its short About
+		// blurb; this is the long version.
 		{ label: 'About', href: '/about' },
 		{ label: 'Blog', href: '/blog' },
 		{ label: 'Contact', href: '/contact', cta: true }

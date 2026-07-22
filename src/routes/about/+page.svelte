@@ -49,7 +49,9 @@
 				</p>
 			</div>
 			<div class="mt-8 flex flex-wrap gap-3">
-				<a href="/projects" class="btn-cartoon">See my projects</a>
+				<!-- The projects live in the home page's brain, not at /projects
+				     (still an unbuilt stub). -->
+				<a href="/#projects" class="btn-cartoon">See my projects</a>
 				<a href="/blog" class="btn-cartoon !bg-temporal">Read the blog</a>
 			</div>
 		</div>
