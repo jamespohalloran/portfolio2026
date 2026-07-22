@@ -94,7 +94,7 @@ export const projects = [
 		tags: ['Steam', '25k+ players', 'Sold the IP in 2020'],
 		href: 'https://store.steampowered.com/app/426190/Miner_Meltdown/',
 		image: '/projects/minermeltdown/minermeltdown.png',
-		gif: '/projects/minermeltdown/gameplay.gif',
+		video: '/projects/minermeltdown/gameplay.mp4',
 		featured: true
 	}
 ];
