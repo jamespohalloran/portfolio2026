@@ -167,9 +167,9 @@
 	$: totalRegions = order.length;
 
 	// Viewports of scroll per region. Half a viewport is about one comfortable
-	// flick, so each flick lands on the next region — and `scroll-snap-stop`
-	// below guarantees it can't overshoot into the one after. The pin height
-	// (introVH) is derived from this.
+	// flick, so each flick lands on the next region — and the one-beat clamp in
+	// `onScrollIdle` guarantees it can't overshoot into the one after. The pin
+	// height (introVH) is derived from this.
 	const PER_REGION = 0.5;
 	$: dwell = Math.max(totalRegions * PER_REGION, 0.5);
 	// Region beats sit at slice CENTRES, so a full-length pin leaves half a slice
@@ -368,28 +368,24 @@
 
 	onDestroy(() => {
 		clearTimeout(idleTimer);
-		clearTimeout(snapRestoreTimer);
 		// onDestroy also runs during SSR, where rAF doesn't exist.
 		if (typeof window !== 'undefined') cancelAnimationFrame(easeRaf);
 	});
 
-	// --- Scroll-idle guards ----------------------------------------------
-	// Two invariants enforced once scrolling has actually STOPPED (debounced, so
-	// momentum and the corrective scrolls themselves don't retrigger them):
+	// --- Beats: the ONE controller of scroll position ---------------------
+	// This section used to have three things steering the same scroll: CSS
+	// scroll-snap (`y mandatory` + `scroll-snap-stop: always`), a corrective idle
+	// guard, and our own programmatic jumps — each of which had to disable or
+	// bypass the others to get anything done. Every scroll bug here came out of
+	// that fight. Snapping is now done in JS, on the same code path as the jumps,
+	// so there is nothing left to race: no snap-mode juggling, no suspend/restore
+	// window, no guessed delays.
 	//
-	//   1. You never come to rest mid-zoom, on a huge contentless brain. The
-	//      stretch between the hero beat and the first region is most of a
-	//      viewport of pure zoom with nothing to read.
-	//   2. One gesture never carries you through more than one beat. Mandatory
-	//      snapping + `scroll-snap-stop: always` is supposed to guarantee this,
-	//      but a hard fling from the very top can still clear the first region
-	//      in some browsers — so this backstops it.
-	//
-	// "Beats" are the snap targets in order: hero, each region, then the exit.
-	// Deliberate jumps (clicking a lobe, a chip, or an arrow) set
-	// `bypassGuard` — those are *meant* to cross several beats at once.
+	// "Beats" are the rest positions in order: the hero, then one per region.
 	$: beatTs = snapTs;
-	$: beatIndex = t > mandatoryEnd ? -1 : nearestBeat(t);
+	// Snapping applies inside the pin only. Past the last beat the page is a
+	// normal document and must scroll normally, or leaving the brain fights you.
+	$: snapEnd = beatTs[beatTs.length - 1] + 0.15;
 	function nearestBeat(pos) {
 		let best = 0;
 		for (let i = 1; i < beatTs.length; i++) {
@@ -399,120 +395,81 @@
 	}
 
 	let idleTimer;
-	// null = "not established yet" — the first idle just records where we are.
-	// That's what makes a deep link like /#writing work: the browser's native
-	// anchor jump lands several beats in, and must not be walked back.
+	// Where the last gesture came to rest. Used to enforce "one flick moves you at
+	// most one beat" — the job `scroll-snap-stop: always` used to do, except this
+	// version behaves identically in every browser.
 	let restBeat = null;
-	let bypassGuard = false;
 	$: t, vhPx, queueIdleCheck();
 	function queueIdleCheck() {
 		if (typeof window === 'undefined') return;
 		clearTimeout(idleTimer);
-		idleTimer = setTimeout(onScrollIdle, 180);
+		idleTimer = setTimeout(onScrollIdle, 140);
 	}
-	function scrollToBeat(k) {
-		jumpTo(beatTs[k] * vhPx);
-	}
+	// Scrolling has stopped. Settle onto a beat — which also enforces "never rest
+	// mid-zoom on a bare brain", since the hero and the first region are the only
+	// beats that stretch can round to.
 	function onScrollIdle() {
-		// Outside the pin entirely — nothing to police, and re-entering from
-		// below should count as a fresh gesture.
-		if (beatIndex < 0) {
-			restBeat = -1;
-			bypassGuard = false;
-			return;
-		}
-		if (bypassGuard) {
-			bypassGuard = false;
-			restBeat = beatIndex;
+		if (jumpRaf) return; // our own animation is still running
+		const last = beatTs.length - 1;
+
+		if (t > snapEnd) {
+			// Below the pin. Leaving is only legitimate FROM the last beat — that's
+			// the deliberate exit. Any other resting point means one flick carried
+			// you through regions you never saw, so pull back to the next one.
+			// (This clamp has to live on THIS side of the early return: checking it
+			// only while still inside the pin is exactly how a hard flick used to
+			// sail through the whole section unchallenged.)
+			if (restBeat !== null && restBeat < last) return jumpTo(beatTs[restBeat + 1] * vhPx);
+			// Resting below the pin counts as resting AT the boundary, not as
+			// "unknown" — that way the same clamp governs flicking back up, instead
+			// of the first upward gesture being unlimited.
+			restBeat = last;
 			return;
 		}
 
-		// (1) Parked mid-zoom → continue to whichever end is nearer.
-		const paneIn = ZOOM_END + SETTLE_FRAC * dwell;
-		if (t > 0.04 && t < paneIn) {
-			scrollToBeat(t < ZOOM_END * 0.3 ? 0 : 1);
-			return;
+		let k = nearestBeat(t);
+		if (restBeat !== null && Math.abs(k - restBeat) > 1) {
+			k = restBeat + Math.sign(k - restBeat); // one flick, one beat
 		}
-
-		// (2) Overshot by more than one beat → walk it back to exactly one.
-		// `restBeat` is left alone so the next idle re-checks the corrected spot.
-		// (`null >= 0` is true in JS, so test for null explicitly.)
-		if (restBeat !== null && restBeat >= 0 && Math.abs(beatIndex - restBeat) > 1) {
-			scrollToBeat(restBeat + Math.sign(beatIndex - restBeat));
-			return;
-		}
-		restBeat = beatIndex;
+		restBeat = k;
+		const target = beatTs[k] * vhPx;
+		if (Math.abs(window.scrollY - target) < 2) return; // already there
+		jumpTo(target);
 	}
 
-	// --- Snap mode --------------------------------------------------------
-	// One swipe should never carry you through more than one region. That's what
-	// `scroll-snap-stop: always` is for, but browsers only honour it reliably
-	// under MANDATORY snapping — with `proximity` a hard fling sails straight
-	// past. So we run mandatory across the regions and drop back to proximity
-	// for the tail of the pin and everything after it: the About/posts/contact
-	// sections have no snap points, and mandatory there fights you the whole way
-	// down. Ending the mandatory window just past the LAST region beat is what
-	// makes leaving the brain section feel like a normal scroll again.
-	// Only a hair past the last beat: any wider and leaving Writing means fighting
-	// mandatory snapping for the whole margin, which reads as heavy snap-back.
-	$: mandatoryEnd = snapTs[snapTs.length - 1] + 0.01;
-
-	let snapSuspended = false;
-	let snapModeNow = '';
-	let snapRestoreTimer;
-
-	// Every programmatic scroll (a lobe, a chip, an arrow, a guard correction)
-	// MUST run with snapping off, or the snap engine grabs the
-	// in-flight animation and drags it back to the nearest beat.
-	//
-	// We animate the scroll OURSELVES rather than using `behavior: 'smooth'`,
-	// and we detect the end by watching our own animation rather than listening
-	// for `scrollend`. Both of those exist for iOS Safari: it only got
-	// `scrollend` very recently (so the restore never fired, leaving snapping
-	// off or restoring at the wrong moment), and its snap engine interrupts
-	// native smooth scrolls even mid-flight. Driving position frame by frame
-	// with snapping hard off is the one approach that behaves the same
-	// everywhere.
+	// --- Programmatic scrolling -------------------------------------------
+	// We animate frame by frame rather than using `behavior: 'smooth'` so the
+	// motion is ours to cancel and reason about; iOS Safari in particular
+	// interrupts native smooth scrolls unpredictably.
 	let jumpRaf = 0;
 	let jumpCleanup = null;
 
-	// `instant` skips the animation entirely and sets the scroll position in one
-	// go. That is the right mode for a REGION HOP, because between region beats
-	// nothing on screen is scroll-animated: the brain is already parked and the
-	// pane is fixed, so scroll position decides only which region is active.
-	// Animating it bought no motion at all — it just delayed the region change by
-	// the length of the animation, and left a 200–500ms window in which a stray
-	// wheel/touch event could cancel the jump half-way and strand the scroll
-	// between beats (the back/forth/back). Instant has no in-flight window at
-	// all: no rAF, no yield listeners, nothing to race.
+	// `instant` skips the animation and sets the position in one go — the right
+	// mode for a REGION HOP, because between region beats nothing on screen is
+	// scroll-animated: the brain is already parked and the pane is fixed, so
+	// scroll position decides only which region is active. Animating it bought no
+	// motion, just latency and a window for a stray event to strand the scroll
+	// half-way.
 	function jumpTo(top, instant = false) {
 		if (typeof window === 'undefined') return;
 		endJump(); // supersede any jump already running
-		// CRITICAL: `endJump` SCHEDULES the snap restore (80ms out) rather than
-		// doing it immediately. Left pending, it fires ~80ms into this jump's
-		// 280–700ms animation, flips the page back to `y mandatory` mid-flight,
-		// and the snap engine hauls the scroll back to the beat we started from —
-		// i.e. every arrow, chip and lobe click silently does nothing.
-		clearTimeout(snapRestoreTimer);
-
-		bypassGuard = true; // a deliberate jump may legitimately cross several beats
-		snapSuspended = true;
-		// SYNCHRONOUS: setting `snapSuspended` alone isn't enough, because Svelte
-		// batches the reactive update and the scroll would start while the page
-		// is still `y mandatory`.
-		applySnapMode(false, true);
 
 		const from = window.scrollY;
 		const max = Math.max(0, document.documentElement.scrollHeight - window.innerHeight);
 		const to = Math.max(0, Math.min(top, max));
 		const dist = Math.abs(to - from);
-		if (dist < 2) return endJump();
+		if (dist < 2) return;
+		// A deliberate jump DEFINES a new resting point. Without this the one-beat
+		// clamp in `onScrollIdle` would measure the next gesture against where you
+		// were before the jump — so two quick taps of › would be judged an
+		// overshoot and dragged back one region.
+		restBeat = to / vhPx <= snapEnd ? nearestBeat(to / vhPx) : beatTs.length - 1;
 		if (instant) {
+			// `behavior: 'instant'` is REQUIRED, not cosmetic: html carries
+			// `scroll-behavior: smooth`, which would otherwise animate this.
 			window.scrollTo({ top: to, behavior: 'instant' });
-			return endJump(); // schedules the snap restore, giving the browser a beat
+			return;
 		}
-		// Scale the duration with distance, within reason. This path is now only
-		// the long scenic move out to About, so it can afford to be leisurely.
 		const ms = Math.min(500, Math.max(190, dist * 0.42));
 		const t0 = performance.now();
 
@@ -528,10 +485,7 @@
 		const step = (now) => {
 			const p = Math.min((now - t0) / ms, 1);
 			const eased = 1 - Math.pow(1 - p, 3); // cubic-out
-			// `behavior: 'instant'` is REQUIRED, not cosmetic: html carries
-			// `scroll-behavior: smooth`, which would turn each of these per-frame
-			// positions into its own browser-run smooth scroll, all of them
-			// fighting each other and this loop.
+			// Same reason as above: each frame must land exactly where we say.
 			window.scrollTo({ top: from + (to - from) * eased, behavior: 'instant' });
 			if (p < 1) jumpRaf = requestAnimationFrame(step);
 			else endJump();
@@ -539,42 +493,18 @@
 		jumpRaf = requestAnimationFrame(step);
 	}
 
-	// Restore snapping a beat after the animation stops, so the browser isn't
-	// re-snapping while the last frame is still landing.
 	function endJump() {
 		if (jumpRaf) cancelAnimationFrame(jumpRaf);
 		jumpRaf = 0;
 		if (jumpCleanup) jumpCleanup();
 		jumpCleanup = null;
-		clearTimeout(snapRestoreTimer);
-		snapRestoreTimer = setTimeout(() => {
-			snapSuspended = false;
-			applySnapMode(t < mandatoryEnd, false);
-		}, 80);
-	}
-	$: applySnapMode(t < mandatoryEnd, snapSuspended);
-	function applySnapMode(inRegions, suspended) {
-		if (typeof document === 'undefined') return;
-		// Past the regions we use 'none', NOT 'proximity'. Proximity still pulls
-		// toward the nearest marker within a sizeable range, so leaving Writing
-		// kept getting tugged back to its beat. There are no snap targets below
-		// the pin anyway, so proximity buys nothing there and only costs the
-		// exit.
-		const want = suspended ? 'none' : inRegions ? 'y mandatory' : 'none';
-		// CRITICAL: this runs on every scroll frame. Re-assigning the property
-		// mid-gesture makes the browser re-evaluate snapping, which reads as the
-		// region flickering and as the page resisting your swipe. Only ever write
-		// on an actual change.
-		if (want === snapModeNow) return;
-		snapModeNow = want;
-		document.documentElement.style.scrollSnapType = want;
 	}
 
 	// Leave the pinned brain section for About. This is the mobile section bar's
 	// ↓ (what its › becomes on the last region) — the only explicit way out now
 	// that the skip pill is gone; everywhere else you just keep scrolling. Snap
-	// is suspended for the duration so the region `scroll-snap-stop`s don't catch
-	// the jump partway, then restored once the smooth scroll settles.
+	// This is a plain animated jump like any other; the idle settle sees `t` land
+	// past `snapEnd` and leaves it alone.
 	function skipIntro() {
 		const el = document.getElementById('about');
 		if (!el) return;
@@ -628,14 +558,10 @@
 	// you straight onto the Projects region of the brain even without JS.
 	const REGION_ID = { big: 'projects', middle: 'experience' };
 
-	// ...but WITH JS we have to re-issue that jump ourselves. The browser
-	// performs an anchor scroll while `scroll-snap-type` is still `y mandatory`,
-	// so the snap engine captures it and dumps you on the nearest brain beat —
-	// which is why the header's About link landed in the middle of the brain
-	// instead of on the About section. `jumpTo`/`goToRegion` suspend snapping
-	// first, so routing every hash through them is the only reliable path.
-	// Deferred a frame so we act after the browser's own (mis-snapped) scroll,
-	// not before it.
+	// ...but WITH JS we re-issue that jump ourselves, so a hash link and an arrow
+	// tap take exactly the same path and land in exactly the same place.
+	// Deferred a tick so we act after the browser's own anchor scroll rather than
+	// racing it.
 	afterNavigate(({ to }) => {
 		const id = to?.url?.hash?.slice(1);
 		if (!id) return;
@@ -1126,18 +1052,6 @@
 
 	</div>
 
-	<!-- Scroll-snap markers — one invisible target per animated beat (hero +
-	     each region). Every beat except the hero uses `scroll-snap-stop: always`
-	     so a fast flick can't skip past a region — it's forced to stop on the
-	     next one. -->
-	{#each snapTs as st, i (st)}
-		<div
-			class="snap-pt {i > 0 ? 'snap-stop' : ''}"
-			style="top: {st * 100}vh;"
-			aria-hidden="true"
-		></div>
-	{/each}
-
 	<!-- Hash anchors — one per region, parked at that region's scroll beat, so
 	     /#projects (and friends) land directly on it. -->
 	{#each order as key, k (key)}
@@ -1234,26 +1148,10 @@
 <ContactSection />
 
 <style>
-	/* Scroll-snap the animated intro beats. `proximity` (not `mandatory`) snaps
-	   to the nearest marker when you pause near one, without trapping you inside
-	   the tall content sections further down. Scoped to the home page: the rule
-	   only applies while this component is mounted. */
+	/* Beat snapping is done in JS (see `onScrollIdle`), not with CSS scroll-snap:
+	   one controller for scroll position instead of three fighting ones. */
 	:global(html) {
-		scroll-snap-type: y proximity;
 		overflow-x: hidden;
-	}
-	/* Invisible snap targets positioned down the intro at each beat's offset. */
-	.snap-pt {
-		position: absolute;
-		left: 0;
-		width: 1px;
-		height: 1px;
-		pointer-events: none;
-		scroll-snap-align: start;
-	}
-	/* Forbid the scroll from flying past a region beat — one flick = one region. */
-	.snap-stop {
-		scroll-snap-stop: always;
 	}
 	/* Invisible link targets at each region's beat (see REGION_ID). */
 	.region-anchor {
