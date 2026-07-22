@@ -226,9 +226,26 @@
 
 	// Parked size, expressed as a share of the viewport width so it reads the
 	// same on any screen.
-	$: parkScale = brainW ? (boxW * (isNarrow ? 0.3 : 0.24)) / brainW : 1;
-	$: parkCx = boxW - PARK_GAP - (brainW * parkScale) / 2;
-	$: parkCy = HEADER_H + PARK_GAP + (brainH * parkScale) / 2;
+	//
+	// The two breakpoints park it differently because the pane sits differently.
+	// On DESKTOP the pane is a fixed-width card in the top-left, so everything
+	// right of it is free: the brain grows and centres in that column, and the
+	// screen reads as two halves. On a PHONE the pane is centred and effectively
+	// full-width, so there is no free column — the brain keeps its small
+	// top-right tuck, out of the pane's way.
+	const PANE_W = 560; // the md pane at its widest: max-w-lg (32rem) + px-6 gutters
+	$: parkScale = brainW ? (boxW * (isNarrow ? 0.3 : 0.36)) / brainW : 1;
+	$: parkHalfW = (brainW * parkScale) / 2;
+	$: parkHalfH = (brainH * parkScale) / 2;
+	// Both axes are clamped, never just set: a narrow desktop window (or a short
+	// one) would otherwise push the centred brain off the right edge or up under
+	// the header.
+	$: parkCx = isNarrow
+		? boxW - PARK_GAP - parkHalfW
+		: Math.min(PANE_W + (boxW - PANE_W) / 2, boxW - PARK_GAP - parkHalfW);
+	$: parkCy = isNarrow
+		? HEADER_H + PARK_GAP + parkHalfH
+		: Math.max((HEADER_H + boxH) / 2, HEADER_H + PARK_GAP + parkHalfH);
 	// ORIGIN ('61% 43%') as pixels — the layer box is the viewport. Scaling about
 	// it leaves that point fixed, so the translate we need is just the gap
 	// between where the centre lands after scaling and where we want it.
