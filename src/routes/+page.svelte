@@ -209,7 +209,16 @@
 	// the top-right corner, clearing the screen for the (info-rich) featured
 	// card. `settle` ramps 0→1 over the first slice of the browse; the pane
 	// fades in with it.
-	const SETTLE_FRAC = 0.07; // fraction of the browse spent settling
+	//
+	// This fraction is the park's PACE, and it has to span most of the tuck. The
+	// first region's beat sits at browse ≈ 0.25 (ZOOM_END → beat centre), so at the
+	// old 0.07 the park finished in the first sliver of that — a ~90ms fling to the
+	// corner right where the ease-in-out zoom is moving fastest — and then the brain
+	// just sat, already parked, for the rest of the scroll. Spreading it to ~0.22
+	// makes the shrink/move play across nearly the whole tuck, decelerating into the
+	// corner as the zoom lands, so growing and parking read as one continuous move.
+	// Keep it BELOW that ~0.25 so the park still completes by the time you land.
+	const SETTLE_FRAC = 0.22; // fraction of the browse spent settling
 	$: isNarrow = innerWidth > 0 && innerWidth < 768;
 	$: settle = Math.min(Math.max(browse / SETTLE_FRAC, 0), 1);
 
@@ -415,7 +424,18 @@
 	//
 	// At either end of the beat list we deliberately DON'T capture, so the swipe
 	// falls through to the browser and you scroll out of the section normally.
-	const ZOOM_MS = 1900; // hero ⇄ first region: the zoom transition's duration
+	// hero ⇄ first region: how long the whole zoom step runs — the reveal (brain
+	// fading up over the head, scroll 0 → ZOOM_END) flowing straight into the tuck
+	// (brain shrinking to its corner, ZOOM_END → beat centre) as ONE continuous
+	// motion. It's timed as a single ease-in-out tween, NOT cubic-out: cubic-out is
+	// front-loaded, so it rushed the reveal and then crawled the tuck (the reason an
+	// earlier version split the two apart) — but splitting made each half decelerate
+	// to a standstill at the boundary, which read as the brain PAUSING before it
+	// shrank. Ease-in-out over the single distance isn't front-loaded: the reveal
+	// takes its natural ~60% of the time and the tuck the rest, velocity peaking
+	// where they meet instead of dropping to zero. This is the "how fast does the
+	// brain appear" knob; the reveal is roughly the first ~0.575 of it.
+	const ZOOM_MS = 1100;
 	const SWIPE_PX = 26; // finger travel before a swipe counts
 	const WHEEL_PX = 32; // accumulated wheel delta before a notch counts
 	// A trackpad flick emits a decaying stream of wheel events for up to a second
@@ -583,6 +603,41 @@
 		}
 	}
 
+	// --- Region dwell ------------------------------------------------------
+	// A region has to be LOOKED AT before you're allowed to scroll off it. The
+	// wheel lock already stops one flick from stepping twice, but it releases the
+	// moment it can prove the input is a genuine new push — so a second flick
+	// landing 200ms after the first still blew straight through a region you had
+	// not read a word of. Regions are the content here; arriving at one and
+	// leaving before it has finished settling in makes the whole pinned section
+	// feel like an obstacle.
+	//
+	// So: for DWELL_MS after landing on a region, gestures are absorbed. Absorbed,
+	// not ignored — the wheel/touch handlers still `preventDefault`, so the page
+	// does not scroll natively behind the block, and the accumulator is reset so a
+	// gesture spent during the dwell can't bank delta and fire the instant it
+	// lifts.
+	//
+	// Only REGION beats dwell. The hero (beat 0) and the exit beat aren't content
+	// to read, and holding you on them would just feel like lag. Only GESTURES
+	// are held off, too: the arrow keys, the next button, the chips and the lobes
+	// are all deliberate aim-and-fire controls, and making them refuse to respond
+	// for a second reads as broken rather than as pacing.
+	const DWELL_MS = 300;
+	let beatLandedAt = 0;
+	function markLanded() {
+		beatLandedAt = performance.now();
+	}
+	function inDwell() {
+		// `window.scrollY`, not the bound `t`: this is asked the frame after a jump
+		// lands, and the bound copy is still catching up then — reading it could
+		// name the beat we just LEFT, which for a hero → region step is beat 0 and
+		// would hand back "no dwell" for exactly the arrival the dwell is for.
+		const k = nearestBeat(window.scrollY / vhPx);
+		if (k < 1 || k > totalRegions) return false; // hero / exit: leave freely
+		return performance.now() - beatLandedAt < DWELL_MS;
+	}
+
 	// Registered by hand, NOT through `<svelte:window on:…>`. Svelte 5 attaches
 	// wheel/touch listeners as PASSIVE and ignores the `|nonpassive` modifier
 	// there, which makes `preventDefault()` a silent no-op — the native scroll
@@ -630,6 +685,10 @@
 	}
 	function onTouchEnd() {
 		if (!inPin || touchStepped) return;
+		// Same "not yet" window as the wheel: a jump still animating hasn't landed,
+		// so there's no region to have dwelled on — a finger-lift during it (part of
+		// swiping like crazy) is absorbed, not stepped. Land first, then dwell.
+		if (jumpRaf || inDwell()) return;
 		if (Math.abs(touchDY) < SWIPE_PX) return; // too small to count as a swipe
 		touchStepped = true; // one finger-down..finger-up is one step, always
 		stepBeat(touchDY < 0 ? 1 : -1);
@@ -667,6 +726,30 @@
 			wheelLockTimer = setTimeout(releaseWheel, WHEEL_QUIET);
 		}
 		if (!canStep(dir)) return;
+		// A jump still ANIMATING, or a fresh landing still inside its dwell, are one
+		// and the same "not yet" window — stepping is blocked for the whole of it.
+		//
+		// The `jumpRaf` half is what makes it hold up under abuse. Without it,
+		// "swipe like crazy from the top" walked straight through: the second swipe
+		// arrived while the 1.9s zoom was still animating, and mid-transit
+		// `inDwell()` is false (the scroll position names no settled region yet), so
+		// the gate was open — the swipe superseded the running jump and re-targeted
+		// a beat further, region after region, without ever landing. You can't dwell
+		// on a region you never reached, so a jump in flight absorbs input outright:
+		// you land FIRST, then the dwell clock starts.
+		//
+		// This is a PURE absorb — it drops the delta and nothing else. It must not
+		// touch the wheel lock or its backstop: re-arming `wheelMaxTimer` (WHEEL_TAIL
+		// = 1.9s) on every absorbed event is what made the hold run far past
+		// DWELL_MS — each trickle of trackpad momentum pushed the release another
+		// 1.9s out, so the real hold was "until momentum stops" + 1.9s. The arriving
+		// flick's own tail is already handled by the lock the triggering step armed
+		// (see stepBeat below); the dwell only needs to add a clean, time-bounded
+		// window on top of that, and `inDwell()` alone decides when it ends.
+		if (jumpRaf || inDwell()) {
+			wheelAcc = 0;
+			return;
+		}
 		wheelAcc += event.deltaY;
 		if (Math.abs(wheelAcc) < WHEEL_PX) return;
 		wheelAcc = 0;
@@ -732,19 +815,26 @@
 			// `scroll-behavior: smooth`, which would otherwise animate this.
 			window.scrollTo({ top: to, behavior: 'instant' });
 			jumpBeat = null;
+			markLanded();
 			return;
 		}
 		// Queue further steps against where this jump is GOING.
 		jumpBeat = nearestBeat(to / vhPx);
-		// The step between the hero and the first region plays the ENTIRE zoom —
-		// the signature move of the page — and it can't be timed by distance,
-		// because it (0.65vh) is barely longer than a plain region hop (0.5vh).
-		// So it gets its own duration. Note the zoom itself completes at ZOOM_END,
-		// only ~60% of the way through the step, so the visible zoom is ~60% of
-		// this number. THIS is the knob for "the zoom is too fast".
+		// The step between the hero and the first region plays the ENTIRE zoom — the
+		// signature move — and can't be timed by distance, because it (0.65vh) is
+		// barely longer than a plain region hop (0.5vh). So it gets its own duration
+		// and its own easing; every other jump is a distance-timed cubic-out hop.
 		const crossesZoom = Math.min(from, to) / vhPx < ZOOM_END;
 		const ms = crossesZoom ? ZOOM_MS : Math.min(750, Math.max(420, dist * 0.85));
 		jumpMs = ms;
+		// The zoom rides ease-in-out (smoothstep) so the reveal and the tuck are one
+		// unbroken motion — soft start, a single velocity peak where the brain stops
+		// growing and starts shrinking, soft landing on the beat — with no interior
+		// standstill to read as a pause. Hops keep cubic-out: they're short snaps,
+		// and its quick-out/soft-in suits a snap.
+		const ease = crossesZoom
+			? (p) => p * p * (3 - 2 * p) // smoothstep
+			: (p) => 1 - Math.pow(1 - p, 3); // cubic-out
 
 		// A jump WE started — the hero pill, an arrow key, a lobe, a chip — has to
 		// lock the wheel out for its duration exactly like a wheel-driven step
@@ -766,22 +856,28 @@
 			wheelPeak = 0;
 			wheelSpent = false;
 			clearTimeout(wheelMaxTimer);
-			wheelMaxTimer = setTimeout(releaseWheel, Math.max(ms, WHEEL_TAIL));
+			wheelMaxTimer = setTimeout(releaseWheel, Math.max(jumpMs, WHEEL_TAIL));
 		}
-		const t0 = performance.now();
 
 		// NO "yield to the user" listeners here. Cancelling a jump part-way leaves
 		// the scroll stranded BETWEEN beats — the half-faded brain-in-the-head
 		// state. A new gesture supersedes the jump properly instead: every in-pin
 		// gesture routes through `stepBeat` → `jumpTo`, which calls `endJump`
 		// first and then animates to a real beat.
+		const t0 = performance.now();
 		const step = (now) => {
 			const p = Math.min((now - t0) / ms, 1);
-			const eased = 1 - Math.pow(1 - p, 3); // cubic-out
+			const eased = ease(p);
 			// Same reason as above: each frame must land exactly where we say.
 			window.scrollTo({ top: from + (to - from) * eased, behavior: 'instant' });
 			if (p < 1) jumpRaf = requestAnimationFrame(step);
-			else endJump();
+			// The dwell is timed from ARRIVAL, not from the gesture that started the
+			// trip — the zoom would otherwise burn the whole dwell before the region
+			// was even on screen.
+			else {
+				endJump();
+				markLanded();
+			}
 		};
 		jumpRaf = requestAnimationFrame(step);
 	}
