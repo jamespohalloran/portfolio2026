@@ -1290,7 +1290,7 @@
 		     On a phone it stays centred and below the brain: the brain parks wider
 		     there, so a left-aligned card would slide underneath it. -->
 		<div
-			class="brain-pane pointer-events-none absolute inset-x-0 top-[25vh] z-30 overflow-x-clip px-3 md:top-[5.25rem] md:px-6"
+			class="brain-pane pointer-events-none absolute inset-x-0 top-[25vh] z-30 overflow-x-clip px-3 md:top-32 md:px-6"
 			style="opacity: {paneOpacity}; transition: opacity 0.3s;"
 			aria-hidden={!active}
 		>
