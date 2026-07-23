@@ -623,7 +623,7 @@
 	// are held off, too: the arrow keys, the next button, the chips and the lobes
 	// are all deliberate aim-and-fire controls, and making them refuse to respond
 	// for a second reads as broken rather than as pacing.
-	const DWELL_MS = 300;
+	const DWELL_MS = 100;
 	let beatLandedAt = 0;
 	function markLanded() {
 		beatLandedAt = performance.now();
