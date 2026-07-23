@@ -36,14 +36,14 @@
 				</p>
 				<p>
 					Most recently I built some daily games that have been played by millions of players:
-					<a class="link" href="https://kindahardgolf.com">Kinda Hard Golf</a> (recenty acquired)
+					<a class="link" href="https://kindahardgolf.com">Kinda Hard Golf</a> (recently acquired)
 					and
 					<a class="link" href="https://squishybilliards.com">Squishy Billiards</a>. Before that I
 					worked at Forestry/TinaCMS bridging the gap between well-engineered
 					websites and content-creation for non-developers.
 				</p>
 				<p>
-					My recent full-time role was with <a class="link" href="https://brilliant.org">Brilliant</a>, where I worked with the interactives team building joyful Stem learning experiences.
+					My recent full-time role was with <a class="link" href="https://brilliant.org">Brilliant</a>, where I worked with the interactives team building joyful STEM learning experiences.
 				</p>
 			</div>
 			<div class="mt-8 flex flex-wrap gap-3">

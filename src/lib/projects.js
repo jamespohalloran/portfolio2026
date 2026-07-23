@@ -53,7 +53,7 @@ export const projects = [
 		details:
 			'Building the interactive learning experiences that make complex STEM concepts click.',
 		context:
-			"I worked on the interactives team, building interactive gamified widgets for learning Stem concepts. This including designing authorable API's for each interactive, implementing in Elm/SVG, and ensuring each interactive works across wildly different lesson formats.",
+			"I worked on the interactives team, building interactive gamified widgets for learning STEM concepts. This including designing authorable API's for each interactive, implementing in Elm/SVG, and ensuring each interactive works across wildly different lesson formats.",
 		period: 'Sept 2025 — July 2026',
 		year: '2025',
 		status: 'Most recent',
@@ -154,9 +154,9 @@ export const projects = [
 		kind: 'work',
 		role: 'Senior Software Engineer · Team Lead, Enterprise',
 		details:
-			'Six years of turning a Git-backed CMS into an enterprise product. Over my time at Foresty, I led the Enterprise team on Forestry CMS, led the Tina Cloud team, and worked as Product Manager on the open-source TinaCMS product.',
+			'Six years of turning a Git-backed CMS into an enterprise product. Over my time at Forestry, I led the Enterprise team on Forestry CMS, led the Tina Cloud team, and worked as Product Manager on the open-source TinaCMS product.',
 		context:
-			'I led several different teams over my time at Forestry, while acting as an IC contribitor along the way. ForestryCMS & TinaCMS needed to work with an ever-changing frontend ecosystem, and I helped provide the technical oversight to steer the product',
+			'I led several different teams over my time at Forestry, while acting as an IC contributor along the way. ForestryCMS & TinaCMS needed to work with an ever-changing frontend ecosystem, and I helped provide the technical oversight to steer the product',
 		period: 'Oct 2017 — Dec 2023',
 		year: '2017',
 		status: 'Past',

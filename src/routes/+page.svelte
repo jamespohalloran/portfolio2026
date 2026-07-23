@@ -62,7 +62,7 @@
 				{
 					title: 'Brilliant.org',
 					role: 'Senior Software Engineer, Interactives',
-					period: 'Sept 2025 — Present',
+					period: 'Sept 2025 — July 2026',
 					details:
 						'Building the interactive learning experiences that make complex STEM concepts click — designing them to be robust, flexible and AI-interoperable so the same interactive works across wildly different lesson formats.',
 					tags: ['Interactives', 'STEM', 'AI-interoperable'],
@@ -1047,6 +1047,10 @@
 <!-- ═══════════════════════════════════════════════════════════════════
      INTRO — pinned scroll-zoom + segment browse.
      ═══════════════════════════════════════════════════════════════════ -->
+<!-- Accessible page heading. Visually hidden because the hero is a scroll-driven
+     illustration, but screen readers and search engines need a real h1. -->
+<h1 class="sr-only">James O'Halloran — Software Engineer &amp; game developer from PEI, Canada</h1>
+
 <div class="relative bg-parchment" style="height: {introVH}vh;">
 	<div class="sticky top-0 h-screen overflow-hidden">
 		<!-- ── The Mundane Hook (scales + fades on scroll) ── -->
@@ -1703,7 +1707,7 @@
 				Hey, I'm James.
 			</h2>
 			<p class="mt-5 text-lg leading-relaxed text-charcoal-soft">
-				I’m a software engineer from PEI, Canada. I love building delightful, interactive web experiences. Most recently, I was on the Interactives team at Brilliant.org, crafting hands-on learning tools. On the side, I build my own web games: Kinda Hard Golf - (recently acquied), Squishy Billiards. I care deeply about great UX, clean architecture, and shipping things people actually love to play with.
+				I’m a software engineer from PEI, Canada. I love building delightful, interactive web experiences. Most recently, I was on the Interactives team at Brilliant.org, crafting hands-on learning tools. On the side, I build my own web games: Kinda Hard Golf - (recently acquired), Squishy Billiards. I care deeply about great UX, clean architecture, and shipping things people actually love to play with.
 			</p>
 		</div>
 	</div>

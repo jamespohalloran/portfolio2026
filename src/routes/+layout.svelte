@@ -2,6 +2,9 @@
 	// Master layout — wraps every page.
 	// Pulls in the compiled Tailwind stylesheet exactly once for the whole app.
 	import '../app.css';
+	// Self-hosted brand font (variable, weights 200–1000). Registers the
+	// 'Nunito Variable' family that --font-display in app.css points at.
+	import '@fontsource-variable/nunito';
 	import { page } from '$app/stores';
 
 	// Single source of truth for the primary nav. `home` marks the exact-match
