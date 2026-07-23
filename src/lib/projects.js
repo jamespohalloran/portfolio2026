@@ -37,7 +37,7 @@ export const projects = [
 		slug: 'kinda-hard-golf',
 		title: 'Kinda Hard Golf',
 		details:
-			'A daily golf game I built solo in PixiJS over a few weeks. It struck a chord — over 4 million players to date and a steady 10k DAU — and after shipping 400 daily levels I sold the IP to a team of daily-game veterans.',
+			'A daily golf game I built solo in PixiJS over a few weeks. It struck a chord — over 4 million players to date and a steady 10k DAU.',
 		context:
 			'Started as a few-week itch and turned into a daily habit for tens of thousands of people. I hand-placed every tile of every level in the early days — auto-tiling did not exist until day 100 — and spent the next year turning that into a real content pipeline. After the 400th daily level I sold the IP to a group of daily-game veterans.',
 		period: '2025 — 2026',
@@ -54,9 +54,9 @@ export const projects = [
 		slug: 'squishy-billiards',
 		title: 'Squishy Billiards',
 		details:
-			'Pool, with a gooey chaotic twist and fresh daily levels. A physics playground I built to see if lightning could strike twice.',
+			'Pool, with a gooey chaotic twist. A daily pool puzzle game, built in PixiJS with custom physics.',
 		context:
-			'A soft-body pool table where nothing holds its shape. Built in PixiJS with a custom squishy-collision solver, and shipped with a daily level pipeline from day one — the piece of Kinda Hard Golf that took a year to get right the first time.',
+			'Pool, with a gooey chaotic twist. A daily pool puzzle game, built in PixiJS with custom physics. Built in a few weeks, currently averaging 1k DAU.',
 		period: '2026 — present',
 		year: '2026',
 		status: 'Live',
@@ -68,24 +68,10 @@ export const projects = [
 		featured: true
 	},
 	{
-		slug: 'draftorders',
-		title: 'DraftOrders.com',
-		details:
-			'A tiny tool that turns "who picks first?" into a spectacle — randomised draft orders with a bit of pizzazz.',
-		context:
-			'Built in an evening because my fantasy league deserved better than a spreadsheet shuffle. It is not pretty, but it has quietly been settling draft orders every season since.',
-		period: '2022',
-		year: '2022',
-		status: 'Live',
-		tags: ['Weekend build', 'Silly tool'],
-		href: 'https://draftorders.com',
-		post: 'introducing-draftorders'
-	},
-	{
 		slug: 'miner-meltdown',
 		title: 'Miner Meltdown',
 		details:
-			'A multiplayer sabotage/mining game I built solo and shipped on Steam over several years, growing it to 25,000+ players on a shoestring budget before selling the IP in 2020.',
+			'A 2d 4v4 multiplayer game. I built solo and shipped on Steam over several years, growing it to 25,000+ players on a shoestring budget before selling the IP in 2020.',
 		context:
 			'My longest solo run: a 2D multiplayer sabotage game in Unity, with its own netcode, matchmaking and a community that stuck around for years. Grew it to 25,000+ players on a shoestring marketing budget before selling the IP in 2020.',
 		period: '2015 — 2020',
@@ -96,7 +82,21 @@ export const projects = [
 		image: '/projects/minermeltdown/minermeltdown.png',
 		video: '/projects/minermeltdown/gameplay.mp4',
 		featured: true
-	}
+	},
+	{
+		slug: 'draftorders',
+		title: 'DraftOrders.com',
+		details:
+			'A tiny tool to solve the question: "who picks first?" into a spectacle. Randomised Fantasy Football draft orders with a bit of pizzazz.',
+		context:
+			'Built in an evening because my fantasy league deserved better than a spreadsheet shuffle. It is not pretty, but it has quietly been settling draft orders every season since.',
+		period: '2022',
+		year: '2022',
+		status: 'Live',
+		tags: ['Weekend build', 'Silly tool'],
+		href: 'https://draftorders.com',
+		post: 'introducing-draftorders'
+	},
 ];
 
 /** The subset the home page's brain shows, in the order authored above. */

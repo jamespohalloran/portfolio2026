@@ -265,7 +265,6 @@
 	const BRAIN_W = 871;
 	const BRAIN_H = 656;
 	const HEADER_H = 68; // fixed overlay header
-	const BANNER_H = 40; // home-only "Available for Freelance / Hire" bar above the header
 	const PARK_GAP = 14; // breathing room below the header and off the right edge
 
 	// Measured size of the brain layer itself — NOT window.innerWidth/Height.
@@ -299,7 +298,7 @@
 	// full-width, so there is no free column — the brain keeps its small
 	// top-right tuck, out of the pane's way.
 	const PANE_W = 560; // the md pane at its widest: max-w-lg (32rem) + px-6 gutters
-	$: parkScale = brainW ? (boxW * (isNarrow ? 0.3 : 0.36)) / brainW : 1;
+	$: parkScale = brainW ? (boxW * (isNarrow ? 0.26 : 0.36)) / brainW : 1;
 	$: parkHalfW = (brainW * parkScale) / 2;
 	$: parkHalfH = (brainH * parkScale) / 2;
 	// Both axes are clamped, never just set: a narrow desktop window (or a short
@@ -309,7 +308,9 @@
 		? boxW - PARK_GAP - parkHalfW
 		: Math.min(PANE_W + (boxW - PANE_W) / 2, boxW - PARK_GAP - parkHalfW);
 	$: parkCy = isNarrow
-		? HEADER_H + BANNER_H + PARK_GAP + parkHalfH
+		? // On a phone the banner slides away as you zoom in (see +layout.svelte), so
+		  // the parked brain sits directly below the header — no banner space reserved.
+		  HEADER_H + PARK_GAP + parkHalfH
 		: Math.max((HEADER_H + boxH) / 2, HEADER_H + PARK_GAP + parkHalfH);
 	// ORIGIN ('61% 43%') as pixels — the layer box is the viewport. Scaling about
 	// it leaves that point fixed, so the translate we need is just the gap
@@ -1290,7 +1291,7 @@
 		     On a phone it stays centred and below the brain: the brain parks wider
 		     there, so a left-aligned card would slide underneath it. -->
 		<div
-			class="brain-pane pointer-events-none absolute inset-x-0 top-[25vh] z-30 overflow-x-clip px-3 md:top-32 md:px-6"
+			class="brain-pane pointer-events-none absolute inset-x-0 top-[22vh] z-30 overflow-x-clip px-3 md:top-32 md:px-6"
 			style="opacity: {paneOpacity}; transition: opacity 0.3s;"
 			aria-hidden={!active}
 		>
@@ -1512,7 +1513,7 @@
 														<video
 															src={base + item.video}
 															poster={imgSrc(item.image)}
-															class="h-36 w-full bg-charcoal object-contain md:h-44"
+															class="h-28 w-full bg-charcoal object-contain md:h-44"
 															autoplay
 															muted
 															loop
@@ -1526,7 +1527,7 @@
 														<img
 															src={base + item.gif}
 															alt="{item.title} gameplay"
-															class="h-36 w-full bg-charcoal object-contain md:h-44"
+															class="h-28 w-full bg-charcoal object-contain md:h-44"
 														/>
 													{:else if imgSrc(item.image)}
 														<!-- `contain`, not `cover`: these are hero images with
@@ -1536,7 +1537,7 @@
 														<img
 															src={imgSrc(item.image)}
 															alt={item.title}
-															class="h-36 w-full object-contain md:h-44"
+															class="h-28 w-full object-contain md:h-44"
 															style="background:{s.color};"
 															loading="lazy"
 														/>
@@ -1574,7 +1575,9 @@
 															{item.details}
 														</p>
 														{#if item.tags?.length}
-															<div class="mt-2.5 flex flex-wrap gap-1.5">
+															<!-- Tags are the most droppable line on a phone — the blurb
+															     already carries the story, so they show on md+ only. -->
+															<div class="mt-2.5 hidden flex-wrap gap-1.5 md:flex">
 																{#each item.tags as tag}
 																	<span class="tv-tag">{tag}</span>
 																{/each}

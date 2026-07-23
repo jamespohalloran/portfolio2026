@@ -35,7 +35,20 @@
 	// The home hero is full-bleed under the (overlay) header, so it needs no top
 	// clearance. Every other page does, to sit below the fixed header.
 	$: isHome = $page.url.pathname === '/';
+
+	// On a phone the home page is crammed once you zoom into the brain, so the
+	// availability banner earns its 40px only in the hero. Past a bit of scroll
+	// it slides up out of the way and the header slides up into its place. This
+	// is purely cosmetic here — the brain's own park geometry already treats the
+	// banner as absent on mobile (see parkCy in +page.svelte), so nothing jumps.
+	let innerWidth = 0;
+	let innerHeight = 0;
+	let scrollY = 0;
+	$: bannerCollapsed =
+		isHome && innerWidth > 0 && innerWidth < 768 && scrollY > innerHeight * 0.35;
 </script>
+
+<svelte:window bind:innerWidth bind:innerHeight bind:scrollY />
 
 <!-- Subtle pastel background gradient sits behind the whole site. -->
 <div
@@ -45,7 +58,9 @@
 	     overlaying the top edge of the full-bleed hero. -->
 	{#if isHome}
 		<div
-			class="fixed inset-x-0 top-0 z-50 border-b-[3px] border-charcoal bg-temporal py-2 text-center"
+			class="fixed inset-x-0 top-0 z-50 border-b-[3px] border-charcoal bg-temporal py-2 text-center transition-transform duration-300 ease-bouncy {bannerCollapsed
+				? '-translate-y-full'
+				: ''}"
 		>
 			<span class="text-sm font-bold tracking-wide text-charcoal">
 				[ Available for Freelance / Hire ]
@@ -57,7 +72,10 @@
 	     doesn't reserve layout space above the full-bleed home hero. On home it
 	     sits just below the availability banner. -->
 	<header
-		class="fixed inset-x-0 z-40 overflow-x-clip backdrop-blur-md {isHome ? 'top-10' : 'top-0'}"
+		class="fixed inset-x-0 z-40 overflow-x-clip backdrop-blur-md transition-[top] duration-300 ease-bouncy {isHome &&
+		!bannerCollapsed
+			? 'top-10'
+			: 'top-0'}"
 	>
 		<nav
 			class="mx-auto flex max-w-5xl items-center justify-center gap-0.5 px-2 py-3 sm:gap-3 sm:px-4"
