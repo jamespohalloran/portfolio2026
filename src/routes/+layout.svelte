@@ -41,9 +41,24 @@
 <div
 	class="flex min-h-full flex-col overflow-x-clip bg-gradient-to-b from-cream via-cream to-cream-deep"
 >
+	<!-- Home-only availability banner: a thin mint bar pinned to the very top,
+	     overlaying the top edge of the full-bleed hero. -->
+	{#if isHome}
+		<div
+			class="fixed inset-x-0 top-0 z-50 border-b-[3px] border-charcoal bg-temporal py-2 text-center"
+		>
+			<span class="text-sm font-bold tracking-wide text-charcoal">
+				[ Available for Freelance / Hire ]
+			</span>
+		</div>
+	{/if}
+
 	<!-- Persistent, overlay, ultra-minimal header. Fixed (not sticky) so it
-	     doesn't reserve layout space above the full-bleed home hero. -->
-	<header class="fixed inset-x-0 top-0 z-50 overflow-x-clip backdrop-blur-md">
+	     doesn't reserve layout space above the full-bleed home hero. On home it
+	     sits just below the availability banner. -->
+	<header
+		class="fixed inset-x-0 z-40 overflow-x-clip backdrop-blur-md {isHome ? 'top-10' : 'top-0'}"
+	>
 		<nav
 			class="mx-auto flex max-w-5xl items-center justify-center gap-0.5 px-2 py-3 sm:gap-3 sm:px-4"
 		>

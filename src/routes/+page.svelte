@@ -239,6 +239,7 @@
 	const BRAIN_W = 871;
 	const BRAIN_H = 656;
 	const HEADER_H = 68; // fixed overlay header
+	const BANNER_H = 40; // home-only "Available for Freelance / Hire" bar above the header
 	const PARK_GAP = 14; // breathing room below the header and off the right edge
 
 	// Measured size of the brain layer itself — NOT window.innerWidth/Height.
@@ -282,7 +283,7 @@
 		? boxW - PARK_GAP - parkHalfW
 		: Math.min(PANE_W + (boxW - PANE_W) / 2, boxW - PARK_GAP - parkHalfW);
 	$: parkCy = isNarrow
-		? HEADER_H + PARK_GAP + parkHalfH
+		? HEADER_H + BANNER_H + PARK_GAP + parkHalfH
 		: Math.max((HEADER_H + boxH) / 2, HEADER_H + PARK_GAP + parkHalfH);
 	// ORIGIN ('61% 43%') as pixels — the layer box is the viewport. Scaling about
 	// it leaves that point fixed, so the translate we need is just the gap
