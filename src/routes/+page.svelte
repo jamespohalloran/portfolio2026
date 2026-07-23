@@ -1576,7 +1576,7 @@
 <!-- ═══════════════════════════════════════════════════════════════════
      ABOUT ME
      ═══════════════════════════════════════════════════════════════════ -->
-<section id="about" class="mx-auto max-w-4xl px-6 py-24">
+<section id="about" class="mx-auto max-w-4xl px-6 pb-8 pt-40">
 	<div class="grid gap-10 md:grid-cols-[16rem_1fr] md:items-center">
 		<!-- A real photo among all the flat pastel art needs a reason to be
 		     there, so it's framed as a snapshot: white polaroid card, the same
