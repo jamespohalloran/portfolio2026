@@ -1583,8 +1583,8 @@
 				class="-rotate-2 rounded-cartoon border-[3px] border-charcoal bg-white p-2.5 pb-8 shadow-cartoon transition-transform duration-300 ease-bouncy hover:rotate-0"
 			>
 				<img
-					src="{base}/sommo.jpg"
-					alt="James in sunglasses and a ball cap at an outdoor festival"
+					src="{base}/james_tie.png"
+					alt="James wearing a tie"
 					class="block aspect-square w-full rounded-sm border-2 border-charcoal object-cover"
 					loading="lazy"
 				/>
