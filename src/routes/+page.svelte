@@ -98,6 +98,32 @@
 			]
 		}
 	};
+
+	// --- Brain regions (per-ITEM highlight) ------------------------------
+	// The `big` lobe holds 7 small anatomical regions (SVG group #brain-regions),
+	// one per selectable item: the 3 featured projects then the 4 experience
+	// items, in that authored order. Selecting an item lights ITS region — a
+	// soft pastel that fades + grows in — instead of the old lobe-level pop.
+	//
+	// `d` is the exported path geometry, in item order. A region with an empty
+	// `d` simply doesn't render, so this is safe to ship half-filled. Colours:
+	// warm/varied pastels chosen to CONTRAST with the mint lobe they sit on —
+	// cool/mint tints just vanish into the background, so the whole set leans
+	// warm (peach → rose → orchid → periwinkle) with only one lit at a time.
+	// All 7 exported regions share this one matrix (it's the inverse of the `big`
+	// lobe's own scale, so the regions land in absolute canvas coords). Applied
+	// once on the group wrapper below rather than repeated per path.
+	const REGIONS_TRANSFORM = 'matrix(4.217077,0,0,4.217077,-9105.486203,-5068.595437)';
+	const brainRegions = [
+		{ id: 'region-1', color: '#ff9f8a', d: 'M2962.44,1523.693C2962.002,1568.86 2966.946,1610.981 2945.919,1631.328C2934.782,1642.105 2921.954,1656.698 2911.289,1667.092C2890.314,1687.536 2895.033,1678.56 2887.889,1706.874C2881.986,1730.269 2932.055,1728.393 2932.325,1727.508C2932.483,1726.991 2945.065,1729.485 2960.888,1723.553C2964.452,1722.216 2962.883,1720.087 2997.66,1693.357C3022.926,1673.937 3015.112,1668.69 3019.498,1658.552C3025.297,1645.151 3037.207,1648.127 3037.804,1637.331C3039.238,1611.378 3026.087,1591.85 3025.835,1591.209C3024.667,1588.233 3026.121,1587.767 3012.666,1553.478C3007.865,1541.243 3005.017,1526.029 2995.356,1523.124C2971.151,1515.845 2969.775,1516.505 2962.44,1523.693Z' }, // Project 1
+		{ id: 'region-2', color: '#ffc37a', d: 'M2657.216,1398.424C2682.558,1398.424 2716.905,1400.906 2719.192,1404.811C2727.067,1418.261 2716.484,1418.933 2716.042,1446.851C2709.97,1451.258 2711.49,1452.788 2705.116,1456.631C2705.1,1456.64 2688.542,1471.03 2686.857,1473.486C2675.78,1489.634 2725.193,1498.942 2741.026,1515.474C2751.055,1525.945 2749.057,1528.577 2748.632,1552.878C2748.499,1560.473 2737.224,1581.903 2736.717,1592.214C2735.782,1611.254 2701.875,1630.082 2683.86,1627.41C2663.91,1624.452 2663.743,1623.256 2650.979,1607.721C2650.439,1607.064 2648.822,1605.095 2642.055,1601.94C2641.915,1598.112 2636.974,1589.456 2633.444,1586.169C2609.607,1563.978 2616.815,1560.979 2599.081,1549.227C2588.759,1542.387 2573.038,1529.037 2610.131,1469.126C2624.37,1446.128 2623.361,1437.046 2628.329,1429.441C2644.833,1404.178 2654.141,1399.853 2657.216,1398.424Z' }, // Project 2
+		{ id: 'region-3', color: '#b3a4ff', d: 'M2577.498,1531.634C2574.433,1530.901 2536.941,1499.631 2509.194,1526.073C2498.47,1536.293 2511.011,1546.751 2525.247,1550.28C2559.587,1558.794 2509.141,1671.447 2608.783,1655.28C2651.551,1648.341 2677.787,1646.326 2652.239,1611.04C2629.657,1579.85 2617.679,1536.765 2577.498,1531.634Z' }, // Project 3
+		{ id: 'region-4', color: '#ffd36e', d: 'M2910.913,1494.908C2892.738,1485.715 2891.541,1479.676 2873.206,1476.734C2844.726,1472.165 2804.689,1443.447 2784.475,1475.901C2781.755,1480.267 2747.265,1505.147 2747.036,1512.331C2746.203,1538.443 2750.872,1559.225 2742.778,1571.498C2730.706,1589.804 2743.477,1598.841 2729.285,1615.88C2708.004,1641.431 2752.649,1608.496 2764.627,1606.14C2797.02,1599.769 2791.256,1598.844 2819.168,1598.194C2827.976,1597.989 2827.876,1594.546 2852.411,1572.106C2856.028,1568.797 2896.464,1567.2 2901.702,1571.424C2911.356,1579.207 2924.635,1552.464 2926.837,1536.433C2930.293,1511.266 2912.187,1496.321 2910.913,1494.908Z' }, // Experience 1
+		{ id: 'region-5', color: '#ff9eb5', d: 'M2541.764,1386.585C2538.784,1386.846 2518.409,1389.053 2494.3,1396.08C2474.157,1401.952 2459.78,1417.562 2453.175,1426.311C2450.242,1430.197 2448.067,1427.637 2439.085,1433.016C2432.265,1437.099 2426.522,1439.187 2423.415,1443.232C2441.137,1458.821 2444.432,1458.264 2445.227,1481.544L2448.962,1482.746C2449.804,1508.063 2443.426,1514.81 2467.074,1523.307C2506.484,1537.468 2507.056,1527.878 2532.407,1520.883C2557.863,1513.859 2557.756,1518.866 2582.571,1526.722C2596.002,1469.803 2626.135,1442.367 2633.827,1424.68C2637.034,1417.306 2647.081,1411.626 2633.246,1406.211C2623.847,1402.532 2596.436,1381.795 2541.764,1386.585Z' }, // Experience 2
+		{ id: 'region-6', color: '#ffb0e6', d: 'M2417.147,1443.972C2362.964,1453.327 2339.277,1514.899 2336.327,1523.412C2321.625,1565.832 2321.768,1596.262 2321.365,1602.655C2323.556,1625.389 2329.047,1676.463 2341.353,1683.515C2345.997,1686.177 2362.255,1644.129 2382.941,1642.299C2398.535,1640.919 2397.575,1638.683 2413.449,1638.152C2434.984,1586.679 2460.465,1564.718 2444.214,1525.418C2435.433,1504.185 2484.169,1454.131 2417.147,1443.972Z' }, // Experience 3
+		{ id: 'region-7', color: '#ff8f9c', d: 'M2848.667,1622.965C2828.871,1617.783 2832.187,1598.849 2780.426,1606.236C2753.305,1610.107 2737.483,1624.922 2722.906,1625.586C2688.741,1627.143 2682.27,1613.684 2645.088,1650.87C2619.689,1641.339 2509.823,1679.784 2516.981,1694.819C2518.888,1675.196 2510.794,1674.977 2492.285,1668.907C2453.643,1656.234 2456.827,1654.733 2417.671,1642.577C2297.929,1605.403 2349.162,1793.036 2468.996,1779.498C2494.076,1776.665 2513.762,1719.93 2542.88,1755.901C2543.851,1757.1 2608.545,1755.965 2611.033,1752.98C2635.832,1723.232 2710.135,1718.77 2711.4,1718.265C2735.371,1708.699 2730.432,1703.038 2744.399,1681.392C2745.818,1690.512 2743.791,1693.543 2752.768,1693.866C2755.857,1693.977 2796.474,1693.085 2820.483,1675.636C2844.475,1658.2 2846.429,1652.705 2848.667,1622.965Z' } // Experience 4
+	];
+
 	// --- Scroll transition state -----------------------------------------
 	let scrollY = 0;
 	let innerHeight = 1;
@@ -350,6 +376,17 @@
 	// Regions move horizontally, items move vertically — one axis, one meaning.
 	let openIndex = 0;
 	$: active, (openIndex = 0); // new region → back to its first item
+
+	// The brain region to light = the SELECTED item, flattened across sections:
+	// big's items occupy 0..(featured-1), middle's follow. `openIndex === -1`
+	// (everything collapsed) or no active region → nothing lit. Guarded so a
+	// collapsed Experience accordion can't underflow into a project region.
+	$: activeRegion =
+		!active || openIndex < 0
+			? -1
+			: active === 'big'
+				? openIndex
+				: featuredProjects.length + openIndex;
 
 	// Which way the region container should slide. Going forward the outgoing
 	// one leaves to the left and the new one enters from the right; going back,
@@ -902,9 +939,12 @@
 		jumpTo(el.getBoundingClientRect().top + window.scrollY);
 	}
 
-	// Emphasis for a segment: the active one pops, the others dim; before the
-	// zoom finishes they idle-pulse to invite a click.
-	const segClass = (key, a) => (a === key ? 'is-active' : a ? 'is-dim' : 'is-idle');
+	// Lobe emphasis is now carried entirely by the per-item region highlights (all
+	// of which sit on the TOP lobe), so the lobes themselves no longer pop or dim
+	// by section — that only ghosted the lower lobes when a section was active.
+	// They keep just the pre-selection idle-pulse (a click invite before the zoom
+	// settles); once you're browsing (`a` set) they render as plain, whole art.
+	const segClass = (key, a) => (a ? '' : 'is-idle');
 
 	// Clicking a segment jumps the scroll straight to that region's slice.
 	function goToRegion(key) {
@@ -1128,6 +1168,31 @@
 								d="M3323.879,2492.709C3323.879,2492.709 3236.221,2595.178 3051.384,2602.453C2913.079,2607.896 2722.627,2600.256 2722.627,2600.256C2722.627,2600.256 2488.899,2710.303 2379.071,2740.952C2229.729,2782.628 2095.926,2784.628 2005.674,2707.669C1952.672,2662.473 1728.073,2751.635 1632.106,2437.162C1516.138,2409.086 1297.16,2485.123 1102.119,2038.527C1082.256,1993.048 939.051,1798.004 1067.03,1364.638C1148.344,1089.289 1554.975,933.836 1554.975,933.836C1551.502,878.142 1851.869,672.682 2229.504,792.86C2300.51,755.966 2428.986,716.341 2515.183,712.167C2699.029,703.264 2841.468,770.298 2841.468,770.298C2841.468,770.298 2856.92,703.662 3239.709,751.343C3408.651,772.387 3438.952,897.287 3454.525,927.676C3449.645,916.684 3443.851,902.456 3441.97,891.464C3440.587,883.38 3705.117,848.08 3937.636,1108.47C3991.199,1168.454 4048.725,1221.553 4048.725,1221.553C4048.725,1221.553 4100.982,1248.729 4139.366,1274.618C4210.72,1322.744 4222.308,1505.344 4219.087,1527.233C4232.647,1529.504 4243.345,1517.665 4311.683,1578.428C4384.177,1642.885 4376.838,1666.01 4389.673,1761.615C4460.995,1839.35 4419.957,1922.921 4419.957,1922.921C4419.957,1922.921 4420.96,1958.048 4430.802,1981.302C4528.688,2212.572 4374.842,2337.413 4374.842,2337.413C4374.842,2337.413 4341.788,2415.904 4249.868,2470.449C4032.784,2599.265 3602.454,2478.659 3602.454,2478.659C3549.794,2525.747 3440.829,2520.325 3323.879,2492.709Z"
 								style="fill:rgb(187,231,211);stroke:black;stroke-width:52.71px;"
 							/>
+						</g>
+						<!-- ── Per-item highlight regions ─────────────────────
+						     One pastel blob per selectable item, drawn over the
+						     lobe fill. Only the SELECTED item's region is lit
+						     (`is-on`): it fades + grows in. `pointer-events:none`
+						     so clicks still fall through to the lobe below.
+						     Empty-`d` regions render nothing (see brainRegions). The
+						     shared matrix (inverse of the lobe's scale) lives here, so
+						     each path stores only its own geometry. -->
+						<g id="brain-regions" transform={REGIONS_TRANSFORM}>
+							{#each brainRegions as region, i (region.id)}
+								{#if region.d}
+									<!-- Two nested transforms so the one-time grow-in and the
+									     looping breathe don't fight over `transform`: the GROUP
+									     eases small→natural on select, the PATH pulses about
+									     natural size once settled. -->
+									<g class="brain-region {activeRegion === i ? 'is-on' : ''}">
+										<path
+											class="brain-region-shape"
+											d={region.d}
+											style="fill: {region.color};"
+										/>
+									</g>
+								{/if}
+							{/each}
 						</g>
 						<path d="M1594.279,2683.561C1743.635,2683.561 1746.203,2660.395 1751.823,2658.156C1765.167,2652.841 1794.768,2650.061 1801.445,2643.407C1817.104,2627.801 1890.265,2624.961 1934.693,2648.898" style="fill:rgb(187,231,211);fill-opacity:0.15;stroke:black;stroke-width:52.71px;" />
 						<path d="M4039.297,2343.872C4038.646,2334.454 4033.917,2266.118 3997.203,2233.627C3952.558,2194.118 3947.926,2203.328 3888.573,2193.632C3902.723,2192.642 3935.388,2197.701 3954.52,2170.747C3972.319,2145.671 3972.265,2103.125 4023.478,2095.281" style="fill:rgb(187,231,211);fill-opacity:0.15;stroke:black;stroke-width:52.71px;" />
@@ -1702,12 +1767,67 @@
 			opacity: 0.68;
 		}
 	}
-	.brain-seg.is-dim {
-		opacity: 0.28;
+	/* Per-item highlight regions. Hidden by default; the selected item's region
+	   fades in and grows a touch. Unlike the segment <g>s these paths carry NO
+	   matrix() of their own, so `transform-box: fill-box` + a centre origin
+	   scales each blob about its own middle without disturbing the art's
+	   positioning — the exact thing the segment <g>s can't do. Non-interactive:
+	   the lobe underneath owns the clicks. */
+	.brain-region {
+		opacity: 0;
+		pointer-events: none;
+		transform-box: fill-box;
+		transform-origin: center;
+		/* Starts SMALLER than its natural size, then eases up to it (scale 1) —
+		   a decelerating ease-out with no overshoot, so it never exceeds the
+		   shape drawn in the SVG. */
+		transform: scale(0.8);
+		transition:
+			opacity 0.5s ease,
+			filter 0.5s ease,
+			transform 0.55s cubic-bezier(0.22, 1, 0.36, 1);
 	}
-	.brain-seg.is-active {
-		filter: drop-shadow(0 10px 14px rgba(45, 42, 50, 0.35));
+	.brain-region.is-on {
+		opacity: 0.95;
+		transform: scale(1);
+		/* A soft same-warmth glow lifts the blob off the lobe so the highlight
+		   reads as deliberate, not a smudge. */
+		filter: drop-shadow(0 0 6px rgba(45, 42, 50, 0.28));
 	}
+	.brain-region-shape {
+		stroke: none;
+		transform-box: fill-box;
+		transform-origin: center;
+	}
+	/* Once the grow-in has settled at natural size, breathe subtly. The delay
+	   lets the entry finish first so the two motions read as one: grow, then
+	   pulse. It breathes INWARD only — natural size is the ceiling, so the
+	   highlight never exceeds the shape drawn in the SVG. */
+	.brain-region.is-on .brain-region-shape {
+		animation: region-breathe 3s ease-in-out 0.5s infinite;
+	}
+	@keyframes region-breathe {
+		0%,
+		100% {
+			transform: scale(1);
+		}
+		50% {
+			transform: scale(0.965);
+		}
+	}
+	@media (prefers-reduced-motion: reduce) {
+		.brain-region {
+			transform: none;
+			transition: opacity 0.3s ease;
+		}
+		.brain-region.is-on {
+			transform: none;
+		}
+		.brain-region.is-on .brain-region-shape {
+			animation: none;
+		}
+	}
+
 	/* Clear hover affordance: solid + a lifted glow (beats the idle animation). */
 	.brain-seg:hover {
 		opacity: 1 !important;
