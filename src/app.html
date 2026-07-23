@@ -3,7 +3,29 @@
 	<head>
 		<meta charset="utf-8" />
 		<meta name="viewport" content="width=device-width, initial-scale=1" />
-		<meta name="description" content="James O'Halloran — creative software engineer bridging web and game development." />
+
+		<!-- ─── SEO: edit these to change how the site appears in search + social ───
+		     Sitewide defaults. Individual routes can override <title>/description
+		     via <svelte:head> in their +page.svelte. -->
+		<title>James O'Halloran - Software Engineer</title>
+		<meta name="description" content="I'm James, a Software Engineer from PEI Canada." />
+
+		<!-- Open Graph / social share card. og:image must be an absolute URL for
+		     scrapers (Facebook, LinkedIn, iMessage) to render it. 1200×630. -->
+		<meta property="og:type" content="website" />
+		<meta property="og:url" content="https://johalloran.dev/" />
+		<meta property="og:title" content="James O'Halloran - Software Engineer" />
+		<meta property="og:description" content="I'm James, a Software Engineer from PEI Canada." />
+		<meta property="og:image" content="https://johalloran.dev/social-james.jpg" />
+		<meta property="og:image:width" content="1200" />
+		<meta property="og:image:height" content="630" />
+		<meta property="og:image:alt" content="James O'Halloran - Software Engineer" />
+
+		<!-- Twitter/X large-image card -->
+		<meta name="twitter:card" content="summary_large_image" />
+		<meta name="twitter:title" content="James O'Halloran - Software Engineer" />
+		<meta name="twitter:description" content="I'm James, a Software Engineer from PEI Canada." />
+		<meta name="twitter:image" content="https://johalloran.dev/social-james.jpg" />
 		<!-- Generated icon set (static/favicon/). The SVG is listed first and is
 		     what modern browsers actually use — it scales to any tab/bookmark size;
 		     the PNG and .ico are the fallbacks behind it. -->
