@@ -18,7 +18,7 @@
 			class="mx-auto w-56 overflow-hidden rounded-cartoon border-[3px] border-charcoal bg-frontal-soft shadow-cartoon md:mx-0 md:w-full"
 		>
 			<img
-				src="{base}/james-avatar.svg"
+				src="{base}/james-avatar.png"
 				alt="Illustrated portrait of James O'Halloran"
 				class="mx-auto block aspect-[4/5] w-full object-contain object-bottom p-4"
 			/>

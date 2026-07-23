@@ -1062,7 +1062,7 @@
 			aria-hidden={!hookInteractive}
 		>
 			<img
-				src="{base}/portfolio-hero.png"
+				src="{base}/portfolio-hero.jpg"
 				alt="James in a ball cap washing dishes in a pastel cartoon kitchen"
 				class="h-full w-full object-cover object-center"
 				fetchpriority="high"

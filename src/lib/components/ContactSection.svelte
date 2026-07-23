@@ -107,7 +107,7 @@
 			<!-- Illustrated portrait cut-out beside the speech bubble. -->
 			<div class="shrink-0">
 				<img
-					src="{base}/james-avatar.svg"
+					src="{base}/james-avatar.png"
 					alt="Illustrated portrait of James O'Halloran"
 					class="h-48 w-auto object-contain object-bottom"
 				/>
