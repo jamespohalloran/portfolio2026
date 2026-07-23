@@ -57,6 +57,7 @@
 		middle: {
 			label: 'Work Experience',
 			color: '#ffb59e',
+			more: { href: '/James_OHalloran_Software_Engineer.pdf', label: 'Download CV', download: 'James_OHalloran_Software_Engineer.pdf' },
 			items: [
 				{
 					title: 'Brilliant.org',
@@ -623,7 +624,7 @@
 	// are held off, too: the arrow keys, the next button, the chips and the lobes
 	// are all deliberate aim-and-fire controls, and making them refuse to respond
 	// for a second reads as broken rather than as pacing.
-	const DWELL_MS = 100;
+	const DWELL_MS = 200;
 	let beatLandedAt = 0;
 	function markLanded() {
 		beatLandedAt = performance.now();
@@ -1492,9 +1493,13 @@
 								     accordion: the brain deliberately shows only a featured few,
 								     so without this the rest of /projects is invisible. -->
 								{#if s.more}
-									<a href="{base}{s.more.href}" class="region-more">
+									<a
+										href="{base}{s.more.href}"
+										download={s.more.download || undefined}
+										class="region-more"
+									>
 										{s.more.label}
-										<span aria-hidden="true">→</span>
+										<span aria-hidden="true">{s.more.download ? '↓' : '→'}</span>
 									</a>
 								{/if}
 							</div>

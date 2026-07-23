@@ -48,7 +48,7 @@
 			</div>
 			<div class="mt-8 flex flex-wrap gap-3">
 				<a href="/#projects" class="btn-cartoon">See my projects</a>
-				<a href="/blog" class="btn-cartoon !bg-temporal">Read the blog</a>
+				<a href="{base}/James_OHalloran_Software_Engineer.pdf" download class="btn-cartoon !bg-temporal">Download CV</a>
 			</div>
 		</div>
 	</div>
