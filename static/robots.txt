@@ -1,4 +1,8 @@
 User-agent: *
 Allow: /
 
+# /sitemap.xml is an index; it points at /sitemap-pages.xml and the separately
+# deployed /lawndle/sitemap.xml. The Lawndle one is listed directly too, since
+# some crawlers read robots.txt but never follow a sitemap index.
 Sitemap: https://johalloran.dev/sitemap.xml
+Sitemap: https://johalloran.dev/lawndle/sitemap.xml

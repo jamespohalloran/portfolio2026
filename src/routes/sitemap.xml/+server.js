@@ -1,30 +1,43 @@
 import { posts } from '$lib/posts';
 
 // Prerendered to a static /sitemap.xml by adapter-static.
+//
+// This is a sitemap *index*, not a URL list. johalloran.dev serves content from
+// more than one deploy: this SvelteKit site owns the root, and Lawndle (in the
+// squishy-billiards monorepo) is mounted at /lawndle/ with its own
+// /lawndle/sitemap.xml. Crawlers have no way to discover that sub-sitemap on
+// their own, so we point at it from here — the URL already submitted to Search
+// Console — and Google follows the index down to both children.
+//
+// The portfolio's own URLs moved to ../sitemap-pages.xml.
 export const prerender = true;
 
 const SITE = 'https://johalloran.dev';
 
-// Top-level static routes. Blog posts are appended from $lib/posts below, so
-// dropping a new Markdown file into src/lib/posts automatically adds its URL.
-const staticPaths = ['/', '/about', '/projects', '/blog', '/contact'];
+// Newest post date, used as the pages sitemap's lastmod so publishing a post
+// nudges crawlers to refetch it.
+const latestPostDate = posts[0]?.date;
+
+const sitemaps = [
+	{ loc: `${SITE}/sitemap-pages.xml`, lastmod: latestPostDate },
+	// Deployed from packages/games/lawndle in the squishy-billiards repo; that
+	// file lists /lawndle/ and /lawndle/privacy. A sitemap at a subpath may only
+	// list URLs at or below it, which it respects, so referencing it from the
+	// root index is valid even though a different repo emits it.
+	{ loc: `${SITE}/lawndle/sitemap.xml` }
+];
 
 export function GET() {
-	const urls = [
-		...staticPaths.map((path) => ({ loc: SITE + path })),
-		...posts.map((p) => ({ loc: `${SITE}/blog/${p.slug}`, lastmod: p.date }))
-	];
-
 	const body =
 		`<?xml version="1.0" encoding="UTF-8"?>\n` +
-		`<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n` +
-		urls
+		`<sitemapindex xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n` +
+		sitemaps
 			.map(
 				({ loc, lastmod }) =>
-					`  <url>\n    <loc>${loc}</loc>${lastmod ? `\n    <lastmod>${lastmod}</lastmod>` : ''}\n  </url>`
+					`  <sitemap>\n    <loc>${loc}</loc>${lastmod ? `\n    <lastmod>${lastmod}</lastmod>` : ''}\n  </sitemap>`
 			)
 			.join('\n') +
-		`\n</urlset>\n`;
+		`\n</sitemapindex>\n`;
 
 	return new Response(body, {
 		headers: {
