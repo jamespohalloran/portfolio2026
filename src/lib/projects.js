@@ -40,7 +40,13 @@
  * @property {string} [gif]
  * @property {string} [logo]    thumbnail fallback (work entries)
  * @property {boolean} [prominent]  renders as a large hero card on /projects
- * @property {boolean} [featured]   shown in the home page's brain
+ * @property {boolean} [featured]   shown in the home page's brain — EXACTLY THREE.
+ *   The brain lights one hand-drawn anatomical region per accordion item, and
+ *   `brainRegions` in routes/+page.svelte holds seven of them: the featured
+ *   projects first, then the four Work Experience entries. A fourth `featured`
+ *   shifts the work items down and leaves the last one with no region and no
+ *   pin. Promoting a project here means demoting another until an eighth region
+ *   is drawn.
  */
 
 /** @type {Project[]} */
@@ -101,6 +107,27 @@ export const projects = [
 		featured: true
 	},
 	{
+		slug: 'lawndle',
+		title: 'Lawndle',
+		kind: 'personal',
+		details:
+			'A daily mowing puzzle. Cut every blade of grass on the lawn and park back in the shed, in as few steps as you can.',
+		context:
+			'Launched August 2026, and the first of the daily games to live on this site rather than a domain of its own. Almost entirely client-side: the levels ship as JSON in the bundle and the only server it talks to is the one endpoint behind the score distribution.',
+		period: '2026 — present',
+		year: '2026',
+		status: 'New',
+		tags: ['Solo Project', 'Daily Puzzle', 'PixiJS / Preact'],
+		href: 'https://johalloran.dev/lawndle',
+		image: 'https://johalloran.dev/lawndle/icons/hero.png',
+		// PLACEHOLDER: this is a copy of the Squishy Billiards clip, standing in
+		// until a real Lawndle capture exists. Drop the new file at the same path
+		// and nothing here needs to change.
+		video: '/projects/lawndle/gameplay.mp4',
+		prominent: true,
+		featured: true
+	},
+	{
 		slug: 'iron-fox-games',
 		title: 'Iron Fox Games',
 		kind: 'work',
@@ -129,8 +156,9 @@ export const projects = [
 		tags: ['Steam', '25k+ players', 'Sold the IP in 2020'],
 		href: 'https://store.steampowered.com/app/426190/Miner_Meltdown/',
 		image: '/projects/minermeltdown/minermeltdown.png',
-		video: '/projects/minermeltdown/gameplay.mp4',
-		featured: true
+		video: '/projects/minermeltdown/gameplay.mp4'
+		// Not `featured`: the brain has room for exactly three — see the note on
+		// `featured` in the typedef above. Lawndle took this slot in Aug 2026.
 	},
 	// {
 	// 	slug: 'draftorders',
