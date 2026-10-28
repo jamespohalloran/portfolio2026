@@ -128,6 +128,25 @@ export const projects = [
 		featured: true
 	},
 	{
+		slug: 'squigdle',
+		title: 'Squigdle',
+		kind: 'personal',
+		details:
+			'A daily drawing game. Everyone gets the same three squiggles: move them, spin them, and doodle them into a picture with limited ink. Then vote on everyone else’s.',
+		context:
+			'Launched October 2026, the second daily game served from this site after Lawndle. Unlike Lawndle it has a real backend: drawings, votes and rankings live in D1, with sign-in, moderation and a server-rendered share card for every doodle.',
+		period: '2026 — present',
+		year: '2026',
+		status: 'New',
+		tags: ['Solo Project', 'Daily Drawing', 'Preact / D1'],
+		href: 'https://johalloran.dev/squigdle/',
+		// Today's squiggles on a blank sheet, rendered by the game itself, so the
+		// card changes daily. Swap in a `video` once there's a gameplay capture.
+		image: 'https://johalloran.dev/squigdle/img/today-og.png',
+		prominent: true
+		// Not `featured`: the brain has room for exactly three — see the typedef.
+	},
+	{
 		slug: 'iron-fox-games',
 		title: 'Iron Fox Games',
 		kind: 'work',
