@@ -1,0 +1,4 @@
+# Cloudflare Pages redirects. /projects became /games in Oct 2026 (work history
+# moved to /about), so old links and search results land somewhere real.
+/projects  /games  301
+/projects/  /games  301

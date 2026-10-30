@@ -11,7 +11,7 @@ const SITE = 'https://johalloran.dev';
 
 // Top-level static routes. Blog posts are appended from $lib/posts below, so
 // dropping a new Markdown file into src/lib/posts automatically adds its URL.
-const staticPaths = ['/', '/about', '/projects', '/blog', '/contact'];
+const staticPaths = ['/', '/about', '/games', '/blog', '/contact'];
 
 export function GET() {
 	// Annotated because the two spreads below infer different element shapes,

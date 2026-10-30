@@ -70,4 +70,13 @@
 			hover:-translate-y-0.5 active:translate-x-[3px] active:translate-y-[3px]
 			active:shadow-none;
 	}
+
+	/* "Sold to new owners" — a tilted sticker on a sold game's media (home
+	   brain panel + /games cards). Position it from the markup. */
+	.sold-ribbon {
+		@apply rounded-full border-[3px] border-charcoal bg-[#ffd36e] px-[0.7rem] py-[0.15rem]
+			text-[0.68rem] font-extrabold uppercase tracking-[0.08em] text-charcoal
+			shadow-cartoon-sm;
+		transform: rotate(-3deg);
+	}
 }

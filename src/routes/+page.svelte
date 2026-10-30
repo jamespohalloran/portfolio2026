@@ -46,19 +46,30 @@
 
 	const sections = {
 		big: {
-			label: 'Personal Projects',
+			label: 'Games',
 			color: '#a8e6cf',
-			// The featured slice of $lib/projects — the same records /projects
-			// renders in full, so the two can never disagree about a project.
+			// The featured slice of $lib/projects — the same records /games
+			// renders in full, so the two can never disagree about a game.
 			// `more` is the region's own "there's a whole page of this" link.
-			more: { href: '/projects', label: 'All projects' },
+			more: { href: '/games', label: 'All games' },
 			items: featuredProjects
 		},
 		middle: {
 			label: 'Work Experience',
 			color: '#ffb59e',
-			more: { href: '/James_OHalloran_Software_Engineer.pdf', label: 'Download CV', download: 'James_OHalloran_Software_Engineer.pdf' },
+			more: { href: '/about', label: 'More about me' },
 			items: [
+				{
+					title: 'Stemble',
+					role: 'Senior Software Engineer',
+					period: 'Aug 2026 — present',
+					details:
+						'Building 3D lab simulations that let students run real experiments in the browser, and working on the platform underneath them.',
+					tags: ['3D lab sims', 'Platform', 'STEM'],
+					logo: '/logos/stemble.svg',
+					// Shares Kinda Hard Golf's region: there are only seven drawn.
+					region: 3
+				},
 				{
 					title: 'Brilliant.org',
 					role: 'Senior Software Engineer, Interactives',
@@ -66,7 +77,8 @@
 					details:
 						'Building the interactive learning experiences that make complex STEM concepts click — designing them to be robust, flexible and AI-interoperable so the same interactive works across wildly different lesson formats.',
 					tags: ['Interactives', 'STEM', 'AI-interoperable'],
-					logo: '/logos/brilliant.png'
+					logo: '/logos/brilliant.png',
+					region: 4
 				},
 				{
 					title: 'Iron Fox Games',
@@ -75,7 +87,8 @@
 					details:
 						'Led the web team building games for Poki.com in TypeScript, PixiJS, Three.js and React — played by millions globally. Spearheaded a rebuild of the team’s tech stack that cut load times 10×.',
 					tags: ['Team lead', 'PixiJS / Three.js', '10× faster loads'],
-					logo: '/logos/iron_fox_games_logo.jpeg'
+					logo: '/logos/iron_fox_games_logo.jpeg',
+					region: 5
 				},
 				{
 					title: 'Forestry.io / TinaCMS',
@@ -84,26 +97,19 @@
 					details:
 						'Led a remote team of 5 building a SaaS Content API on React/TypeScript, GraphQL, Node.js, AWS and DynamoDB, plus the enterprise layer around it — SSO, RBAC and audit logging. Developer tooling that bridged fast, well-engineered sites and editing non-developers could actually use.',
 					tags: ['DevTools', 'GraphQL', 'SSO / RBAC'],
-					logo: '/logos/tinacms.jpg'
-				},
-				{
-					title: 'Earlier work',
-					role: 'Adeptio · Telos Entertainment · SwiftRadius',
-					period: '2011 — 2015',
-					details:
-						'A cloud-based marketing automation platform in ASP.NET at Adeptio/Spokefire; “My Ocean”, an educational Unity3D game for National Geographic at Telos; and iOS/BlackBerry prototypes for the provincial government at SwiftRadius.',
-					tags: ['ASP.NET', 'Unity3D', 'Mobile'],
-					logo: '/logos/telos.jpg'
+					logo: '/logos/tinacms.jpg',
+					region: 6
 				}
 			]
 		}
 	};
 
 	// --- Brain regions (per-ITEM highlight) ------------------------------
-	// The `big` lobe holds 7 small anatomical regions (SVG group #brain-regions),
-	// one per selectable item: the 3 featured projects then the 4 experience
-	// items, in that authored order. Selecting an item lights ITS region — a
-	// soft pastel that fades + grows in — instead of the old lobe-level pop.
+	// The `big` lobe holds 7 small anatomical regions (SVG group #brain-regions):
+	// the featured projects take the first four in authored order, and the
+	// experience items pick theirs with `region` (Stemble shares Kinda Hard
+	// Golf's). Selecting an item lights ITS region — a soft pastel that fades +
+	// grows in — instead of the old lobe-level pop.
 	//
 	// `d` is the exported path geometry, in item order. A region with an empty
 	// `d` simply doesn't render, so this is safe to ship half-filled. Colours:
@@ -378,16 +384,16 @@
 	let openIndex = 0;
 	$: active, (openIndex = 0); // new region → back to its first item
 
-	// The brain region to light = the SELECTED item, flattened across sections:
-	// big's items occupy 0..(featured-1), middle's follow. `openIndex === -1`
-	// (everything collapsed) or no active region → nothing lit. Guarded so a
-	// collapsed Experience accordion can't underflow into a project region.
+	// The brain region to light = the SELECTED item. Games light regions
+	// 0..(featured-1) in order; jobs name theirs with `region`, because there are
+	// more items than drawn regions and a job may share a game's. `openIndex ===
+	// -1` (everything collapsed) or no active region → nothing lit.
 	$: activeRegion =
 		!active || openIndex < 0
 			? -1
 			: active === 'big'
 				? openIndex
-				: featuredProjects.length + openIndex;
+				: (sections.middle.items[openIndex]?.region ?? -1);
 
 	// --- Location pin ----------------------------------------------------
 	// A map pin (static/pin.svg) drops onto whichever region is lit, tip planted
@@ -1049,7 +1055,7 @@
      ═══════════════════════════════════════════════════════════════════ -->
 <!-- Accessible page heading. Visually hidden because the hero is a scroll-driven
      illustration, but screen readers and search engines need a real h1. -->
-<h1 class="sr-only">James O'Halloran — Software Engineer &amp; game developer from PEI, Canada</h1>
+<h1 class="sr-only">James O'Halloran — making daily web games from PEI, Canada</h1>
 
 <div class="relative bg-parchment" style="height: {introVH}vh;">
 	<div class="sticky top-0 h-screen overflow-hidden">
@@ -1178,7 +1184,7 @@
 						transform="matrix(0.237131,0,0,0.237131,2159.193919,1201.921589)"
 						role="button"
 						tabindex="0"
-						aria-label="Show Projects"
+						aria-label="Show Games"
 						on:click={() => goToRegion('big')}
 						on:keydown={(e) => onKey(e, 'big')}
 					>
@@ -1542,7 +1548,7 @@
 															src={imgSrc(item.image)}
 															alt={item.title}
 															class="h-28 w-full object-contain md:h-44"
-															style="background:{s.color};"
+															style="background:{item.imageBg ?? s.color};"
 															loading="lazy"
 														/>
 														{/if}
@@ -1550,6 +1556,13 @@
 														<!-- Jobs have no href, so nothing is overlaid on their
 														     logo — the button only exists where there's somewhere
 														     to go. -->
+														<!-- A sold game is still playable, just not mine any
+														     more — say so on the media itself, opposite the CTA. -->
+														{#if item.status === 'Sold'}
+															<span class="sold-ribbon absolute left-2.5 top-2.5">
+																Sold to new owners
+															</span>
+														{/if}
 														{#if item.href}
 															<a
 																href={item.href}
@@ -1596,7 +1609,7 @@
 
 								<!-- Regions that have a dedicated page say so, right under the
 								     accordion: the brain deliberately shows only a featured few,
-								     so without this the rest of /projects is invisible. -->
+								     so without this the rest of /games is invisible. -->
 								{#if s.more}
 									<a
 										href="{base}{s.more.href}"
@@ -1707,7 +1720,7 @@
 				Hey, I'm James.
 			</h2>
 			<p class="mt-5 text-lg leading-relaxed text-charcoal-soft">
-				I’m a software engineer from PEI, Canada. I love building delightful, interactive web experiences. Most recently, I was on the Interactives team at Brilliant.org, crafting hands-on learning tools. On the side, I build my own web games: Kinda Hard Golf - (recently acquired), Squishy Billiards. I care deeply about great UX, clean architecture, and shipping things people actually love to play with.
+				I’m a software engineer from PEI, Canada, and I make small daily web games: Squigdle, Lawndle and Squishy Billiards, and before them Kinda Hard Golf, which grew to over 4 million players before I sold it. Before that I spent 15 years building software at places like Brilliant.org, Iron Fox Games and TinaCMS. These days I just like making things that are fun to poke at. Go play something, and tell me what you think.
 			</p>
 		</div>
 	</div>

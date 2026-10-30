@@ -100,8 +100,12 @@
 		<h2
 			class="text-center text-3xl font-extrabold uppercase tracking-tight text-charcoal sm:text-4xl"
 		>
-			Want something cool built?
+			Say hello
 		</h2>
+		<p class="mx-auto mt-4 max-w-xl text-center text-lg text-charcoal-soft">
+			Played one of my games? Looking to have something built? Just want to chat? I'd love to hear
+			from you.
+		</p>
 
 		<div class="mt-12 flex flex-col items-center gap-8 md:flex-row md:items-start md:gap-6">
 			<!-- Illustrated portrait cut-out beside the speech bubble. -->
@@ -156,7 +160,7 @@
 							<textarea
 								name="message"
 								rows="4"
-								placeholder="What are you working on?"
+								placeholder="Bug reports, high scores, ideas, or just hi…"
 								required
 								class="field mt-1.5 resize-y"
 							></textarea>
@@ -182,7 +186,7 @@
 							class="btn-cartoon mt-6 !bg-temporal"
 							disabled={status === 'submitting'}
 						>
-							{status === 'submitting' ? 'Sending…' : 'Contact'}
+							{status === 'submitting' ? 'Sending…' : 'Send'}
 						</button>
 					</form>
 				{/if}

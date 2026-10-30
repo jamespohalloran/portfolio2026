@@ -1,19 +1,22 @@
 // ─────────────────────────────────────────────────────────────────────
-//  Project & work index — ONE source of truth for /projects.
+//  Games & work index — ONE source of truth for /games and /about.
 //
-//  Two axes describe every entry:
-//    • `kind`      — 'personal' | 'work'. Drives the /projects filter tabs.
-//    • `prominent` — the handful that render as big hero cards; everything
-//                    else (and every future addition) renders compact. This
-//                    is a curation flag, independent of `kind`, so a work
-//                    entry can headline next to a personal one.
+//  `kind` ('personal' | 'work') splits every entry between the two pages:
+//  the personal entries are the games, the work entries are the career.
+//  Authored order is display order (newest first), on both pages and in the
+//  brain.
 //
 //  Surfaces that read this file want different amounts of it:
-//    • the home page's brain (Personal Projects lobe) — a compact accordion,
-//      so it uses `details` + `tags` + `href` and shows only `featured` ones.
+//    • the home page's brain (Games lobe) — a compact accordion, so it uses
+//      `details` + `tags` + `href` and shows only `featured` ones.
 //      (The brain's Work Experience lobe is authored separately, in +page.svelte.)
-//    • /projects — the full grid, which additionally uses `period`, `year`,
-//      `status`, `role`, `logo` and the longer `context`.
+//    • /games — every personal entry as a full card, which additionally uses
+//      `period`, `status` and the longer `context`.
+//    • /about — a compact "What I've built" list of the games (`details`,
+//      `status`, `image`) and a Career list of the work entries: `role`,
+//      `period`, `details`, `logo`.
+//    • the home banner (+layout.svelte) — the newest game's `title`, `tagline`
+//      and `href`.
 //
 //  Media, in the order a surface should prefer it: `video` > `gif` > `image`
 //  > `logo`. `image` stays the still used for thumbnails and as the video's
@@ -27,6 +30,10 @@
  * @property {string} title
  * @property {'personal'|'work'} kind
  * @property {string} details   short blurb (brain accordion + grid card)
+ * @property {string} [tagline] one-liner for the home banner, which plugs the
+ *   first game that has one — move it to each new game when it launches
+ * @property {string} [platform] where it's played, when that isn't the web —
+ *   /games gives each platform its own section (e.g. 'Steam')
  * @property {string} context   the longer story (grid card only)
  * @property {string} period    human-readable span, e.g. '2025 — 2026'
  * @property {string} year      sort key: the year it was created
@@ -36,21 +43,39 @@
  * @property {string} [href]
  * @property {string} [post]    blog slug, when there's a write-up
  * @property {string} [image]
+ * @property {string} [imageBg] colour behind a letterboxed `image` — set it to
+ *   the image's own edge colour so the bars disappear instead of showing the
+ *   card's accent
  * @property {string} [video]
  * @property {string} [gif]
  * @property {string} [logo]    thumbnail fallback (work entries)
- * @property {boolean} [prominent]  renders as a large hero card on /projects
- * @property {boolean} [featured]   shown in the home page's brain — EXACTLY THREE.
+ * @property {boolean} [featured]   shown in the home page's brain — EXACTLY FOUR.
  *   The brain lights one hand-drawn anatomical region per accordion item, and
  *   `brainRegions` in routes/+page.svelte holds seven of them: the featured
- *   projects first, then the four Work Experience entries. A fourth `featured`
- *   shifts the work items down and leaves the last one with no region and no
- *   pin. Promoting a project here means demoting another until an eighth region
- *   is drawn.
+ *   projects take the first four in order, and the Work Experience entries
+ *   (authored in +page.svelte) pick theirs by index with `region`. A fifth
+ *   `featured` would light region five, which belongs to a job. Promoting a
+ *   project here means demoting another until an eighth region is drawn.
  */
 
 /** @type {Project[]} */
 export const projects = [
+	{
+		slug: 'stemble',
+		kind: 'work',
+		title: 'Stemble',
+		role: 'Senior Software Engineer',
+		details:
+			'Building 3D lab simulations that let students run real experiments in the browser, and working on the platform underneath them.',
+		context:
+			'I build interactive 3D lab simulations for STEM courses, and work across the platform that serves them.',
+		period: 'Aug 2026 — present',
+		year: '2026',
+		status: 'Current',
+		tags: ['3D lab sims', 'Platform', 'STEM'],
+		href: 'https://stemble.com',
+		logo: '/logos/stemble.svg'
+	},
 	{
 		slug: 'brilliant',
 		title: 'Brilliant.org',
@@ -65,45 +90,27 @@ export const projects = [
 		status: 'Most recent',
 		tags: ['Interactives', 'ELM / TS', 'AI-interoperable'],
 		href: 'https://brilliant.org',
-		logo: '/logos/brilliant.png',
-		prominent: true
+		logo: '/logos/brilliant.png'
 	},
 	{
-		slug: 'kinda-hard-golf',
-		title: 'Kinda Hard Golf',
+		slug: 'squigdle',
+		title: 'Squigdle',
 		kind: 'personal',
+		tagline: 'a daily drawing game. Play today’s Squigdle',
 		details:
-			'A daily golf game I built solo in PixiJS over a few weeks. It struck a chord, played by over 4 million players to date and a steady 10k DAU.',
+			'A daily drawing game. Everyone gets the same three squiggles: move them, spin them, and doodle them into a picture with limited ink. Then vote on everyone else’s.',
 		context:
-			"This idea hit me and I prototyped it in an evening. I launched it a few weeks later and snowballed very quickly. After the game's 400th daily level I sold the IP to a group of daily-game veterans.",
-		period: '2025 — 2026',
-		year: '2025',
-		status: 'Sold',
-		tags: ['4M+ players', 'Solo Project', 'Sold the IP'],
-		href: 'https://kindahardgolf.com',
-		post: 'kinda-hard-golf-sold',
-		image: 'https://kindahardgolf.com/hero.jpg',
-		video: '/projects/kindahardgolf/gameplay.mp4',
-		prominent: true,
-		featured: true
-	},
-	{
-		slug: 'squishy-billiards',
-		title: 'Squishy Billiards',
-		kind: 'personal',
-		details:
-			'Pool, with a gooey chaotic twist. A daily pool puzzle game, built in PixiJS with custom physics.',
-		context:
-			'This game is my follow-up after selling Kinda Hard Golf. Built in a few weeks, currently averaging 1k DAU, and is growing by the day.',
+			'Launched October 2026, the second daily game served from this site after Lawndle. Unlike Lawndle it has a real backend: drawings, votes and rankings live in D1, with sign-in, moderation and a server-rendered share card for every doodle.',
 		period: '2026 — present',
 		year: '2026',
-		status: 'Live',
-		tags: ['Solo Project', 'Custom Physics', 'PixiJS'],
-		href: 'https://squishybilliards.com',
-		post: 'squishy-billiards',
-		image: 'https://squishybilliards.com/hero.jpg',
-		video: '/projects/squishybilliards/squishy-billiards-gameplay.mp4',
-		prominent: true,
+		status: 'New',
+		tags: ['Solo Project', 'Daily Drawing', 'Preact / D1'],
+		href: 'https://johalloran.dev/squigdle/',
+		// Today's squiggles on a blank sheet, rendered by the game itself, so the
+		// poster changes daily.
+		image: 'https://johalloran.dev/squigdle/img/today-og.png',
+		imageBg: '#efe6d2',
+		video: '/projects/squigdle/Squigdle-quick.mp4',
 		featured: true
 	},
 	{
@@ -124,27 +131,46 @@ export const projects = [
 		// until a real Lawndle capture exists. Drop the new file at the same path
 		// and nothing here needs to change.
 		video: '/projects/lawndle/gameplay.mp4',
-		prominent: true,
 		featured: true
 	},
 	{
-		slug: 'squigdle',
-		title: 'Squigdle',
+		slug: 'squishy-billiards',
+		title: 'Squishy Billiards',
 		kind: 'personal',
 		details:
-			'A daily drawing game. Everyone gets the same three squiggles: move them, spin them, and doodle them into a picture with limited ink. Then vote on everyone else’s.',
+			'Pool, with a gooey chaotic twist. A daily pool puzzle game, built in PixiJS with custom physics.',
 		context:
-			'Launched October 2026, the second daily game served from this site after Lawndle. Unlike Lawndle it has a real backend: drawings, votes and rankings live in D1, with sign-in, moderation and a server-rendered share card for every doodle.',
+			'This game is my follow-up after selling Kinda Hard Golf. Built in a few weeks, currently averaging 1k DAU, and is growing by the day.',
 		period: '2026 — present',
 		year: '2026',
-		status: 'New',
-		tags: ['Solo Project', 'Daily Drawing', 'Preact / D1'],
-		href: 'https://johalloran.dev/squigdle/',
-		// Today's squiggles on a blank sheet, rendered by the game itself, so the
-		// card changes daily. Swap in a `video` once there's a gameplay capture.
-		image: 'https://johalloran.dev/squigdle/img/today-og.png',
-		prominent: true
-		// Not `featured`: the brain has room for exactly three — see the typedef.
+		status: 'Live',
+		tags: ['Solo Project', 'Custom Physics', 'PixiJS'],
+		href: 'https://squishybilliards.com',
+		post: 'squishy-billiards',
+		image: 'https://squishybilliards.com/hero.jpg',
+		video: '/projects/squishybilliards/squishy-billiards-gameplay.mp4',
+		featured: true
+	},
+	{
+		slug: 'kinda-hard-golf',
+		title: 'Kinda Hard Golf',
+		kind: 'personal',
+		details:
+			'A daily golf game I built solo in PixiJS over a few weeks. It struck a chord, played by over 4 million players to date and a steady 10k DAU.',
+		context:
+			"This idea hit me and I prototyped it in an evening. I launched it a few weeks later and snowballed very quickly. After the game's 400th daily level I sold the IP to a group of daily-game veterans.",
+		period: '2025 — 2026',
+		year: '2025',
+		status: 'Sold',
+		tags: ['4M+ players', 'Solo Project', 'Sold the IP'],
+		href: 'https://kindahardgolf.com',
+		post: 'kinda-hard-golf-sold',
+		image: 'https://kindahardgolf.com/hero.jpg',
+		video: '/projects/kindahardgolf/gameplay.mp4',
+		// Featured despite being sold: it's the one most people know. It took
+		// the brain region the "Earlier work" job entry used to have, and its
+		// panel carries a "Sold to new owners" ribbon (see +page.svelte).
+		featured: true
 	},
 	{
 		slug: 'iron-fox-games',
@@ -174,9 +200,10 @@ export const projects = [
 		status: 'Sold',
 		tags: ['Steam', '25k+ players', 'Sold the IP in 2020'],
 		href: 'https://store.steampowered.com/app/426190/Miner_Meltdown/',
+		platform: 'Steam',
 		image: '/projects/minermeltdown/minermeltdown.png',
 		video: '/projects/minermeltdown/gameplay.mp4'
-		// Not `featured`: the brain has room for exactly three — see the note on
+		// Not `featured`: the brain has room for exactly four — see the note on
 		// `featured` in the typedef above. Lawndle took this slot in Aug 2026.
 	},
 	// {
@@ -209,10 +236,15 @@ export const projects = [
 		status: 'Past',
 		tags: ['DevTools', 'GraphQL', 'SSO / RBAC'],
 		href: 'https://tina.io',
-		logo: '/logos/tinacms.jpg',
-		prominent: true
+		logo: '/logos/tinacms.jpg'
 	}
 ];
 
 /** The subset the home page's brain shows, in the order authored above. */
 export const featuredProjects = projects.filter((p) => p.featured);
+
+/** Everything /games shows: the personal entries, in authored order. */
+export const games = projects.filter((p) => p.kind === 'personal');
+
+/** The career entries /about lists. */
+export const work = projects.filter((p) => p.kind === 'work');

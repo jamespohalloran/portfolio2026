@@ -1,7 +1,7 @@
 // Prerender EVERY route as static HTML at build time.
 //
 // Declaring this once at the root layout cascades to all child routes, so the
-// entire site — home, /about, /projects, /experience, /blog, /contact —
+// entire site — home, /about, /games, /experience, /blog, /contact —
 // compiles to flat static files with zero server runtime. This is what makes
 // the adapter-static / Cloudflare Pages deploy work.
 export const prerender = true;

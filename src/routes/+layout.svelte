@@ -6,6 +6,12 @@
 	// 'Nunito Variable' family that --font-display in app.css points at.
 	import '@fontsource-variable/nunito';
 	import { page } from '$app/stores';
+	import { games } from '$lib/projects';
+
+	// The banner plugs the newest game, marked by its `tagline` in
+	// $lib/projects. Not simply games[0]: display order puts games with a
+	// gameplay clip first, so the newest launch isn't always on top.
+	const latest = games.find((g) => g.tagline);
 
 	// Single source of truth for the primary nav. `home` marks the exact-match
 	// Home link; a `cta` flag marks Contact so it renders as the button.
@@ -14,8 +20,8 @@
 		// A REAL page, for the same reason About is one: the home page's brain
 		// shows a featured few inside a pinned, scroll-driven section, and that's
 		// no place to browse an archive. /#projects still works and still lands on
-		// the brain's Projects lobe — it's just no longer what the nav points at.
-		{ label: 'Projects', href: '/projects' },
+		// the brain's Games lobe — it's just no longer what the nav points at.
+		{ label: 'Games', href: '/games' },
 		// About is a REAL page. It deliberately isn't `/#about`: a hash link has
 		// to land inside the pinned, scroll-snapped brain section's coordinate
 		// space, where the snap engine competes for the same scroll — a route
@@ -28,7 +34,7 @@
 
 	// Active-path test. Home matches only exactly (and only with no hash, so the
 	// in-page #projects link owns that state); hash links match the hash;
-	// sections match their prefix so /projects/foo still lights up Projects.
+	// sections match their prefix so /games/foo still lights up Games.
 	$: isActive = (href) => {
 		if (href.startsWith('/#')) return $page.url.pathname === '/' && $page.url.hash === href.slice(1);
 		if (href === '/') return $page.url.pathname === '/' && !$page.url.hash;
@@ -40,7 +46,7 @@
 	$: isHome = $page.url.pathname === '/';
 
 	// On a phone the home page is crammed once you zoom into the brain, so the
-	// availability banner earns its 40px only in the hero. Past a bit of scroll
+	// new-game banner earns its 40px only in the hero. Past a bit of scroll
 	// it slides up out of the way and the header slides up into its place. This
 	// is purely cosmetic here — the brain's own park geometry already treats the
 	// banner as absent on mobile (see parkCy in +page.svelte), so nothing jumps.
@@ -57,23 +63,23 @@
 <div
 	class="flex min-h-full flex-col overflow-x-clip bg-gradient-to-b from-cream via-cream to-cream-deep"
 >
-	<!-- Home-only availability banner: a thin mint bar pinned to the very top,
-	     overlaying the top edge of the full-bleed hero. -->
-	{#if isHome}
-		<div
-			class="fixed inset-x-0 top-0 z-50 border-b-[3px] border-charcoal bg-temporal py-2 text-center transition-transform duration-300 ease-bouncy {bannerCollapsed
+	<!-- Home-only new-game banner: a thin mint bar pinned to the very top,
+	     overlaying the top edge of the full-bleed hero. The whole bar is the link. -->
+	{#if isHome && latest}
+		<a
+			href={latest.href}
+			class="group fixed inset-x-0 top-0 z-50 block truncate border-b-[3px] border-charcoal bg-temporal px-4 py-2 text-center text-sm font-bold tracking-wide text-charcoal transition-transform duration-300 ease-bouncy {bannerCollapsed
 				? '-translate-y-full'
 				: ''}"
 		>
-			<span class="text-sm font-bold tracking-wide text-charcoal">
-				[ Available for Freelance / Hire ]
-			</span>
-		</div>
+			New Game: <span class="underline decoration-2 underline-offset-2">{latest.title}</span>{#if latest.tagline}<span class="hidden sm:inline"> — {latest.tagline}</span>{/if}
+			<span aria-hidden="true" class="inline-block transition-transform group-hover:translate-x-1">→</span>
+		</a>
 	{/if}
 
 	<!-- Persistent, overlay, ultra-minimal header. Fixed (not sticky) so it
 	     doesn't reserve layout space above the full-bleed home hero. On home it
-	     sits just below the availability banner. -->
+	     sits just below the new-game banner. -->
 	<header
 		class="fixed inset-x-0 z-40 overflow-x-clip backdrop-blur-md transition-[top] duration-300 ease-bouncy {isHome &&
 		!bannerCollapsed
