@@ -60,7 +60,7 @@ The squiggles are curvy and blobby, so a lot of innocent doodles end up looking 
 
 ## How it's going
 
-After ~1,000 doodles, it's holding up really well. The misses are the occasional phallic-looking false alarm, which costs me one tap in Discord. All 1,000 checks have cost me 6 cents in total.
+After ~1,000 doodles, it's holding up really well. The misses are the occasional phallic-looking false alarm, which costs me one tap in Discord. Each check sends a 512×512 PNG plus the title. All 1,000 have cost me 6 cents in total, about $0.00006 per doodle. Your mileage will obviously vary with image size and how much you ask per check.
 
 ![The Squigdle admin for day #2: clean doodles with their Jev scores, and an NSFW one (sexual 90%) blurred out](/posts/squigdle-moderation/admin.jpg)
 
