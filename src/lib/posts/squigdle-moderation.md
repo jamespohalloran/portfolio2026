@@ -60,7 +60,7 @@ The squiggles are curvy and blobby, so a lot of innocent doodles end up looking 
 
 ## How it's going
 
-Around 700 doodles in, it's holding up really well. The misses are the occasional phallic-looking false alarm, which costs me one tap in Discord. So far the tokens haven't cost a full $0.01.
+After ~1,000 doodles, it's holding up really well. The misses are the occasional phallic-looking false alarm, which costs me one tap in Discord. All 1,000 checks have cost me 6 cents in total.
 
 ![The Squigdle admin for day #2: clean doodles with their Jev scores, and an NSFW one (sexual 90%) blurred out](/posts/squigdle-moderation/admin.jpg)
 
