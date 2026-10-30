@@ -58,7 +58,16 @@
 				dateCreated: g.year,
 				gamePlatform: g.platform ?? 'Web browser',
 				...(g.platform ? {} : { applicationCategory: 'Game', isAccessibleForFree: true }),
-				author: { '@id': `${SITE}/#james` } // the Person on the home page
+				// Spelled out in full, not a bare { '@id' } link: that Person is
+				// defined on the home page, and validators choke on a reference to
+				// a node that isn't on the page they're reading. The @id still
+				// joins the two up.
+				author: {
+					'@type': 'Person',
+					'@id': `${SITE}/#james`,
+					name: "James O'Halloran",
+					url: SITE
+				}
 			}
 		}))
 		// `<` escaped so a closing script tag inside any blurb can't end the tag early.
