@@ -124,4 +124,22 @@
 		border-radius: 0.4rem;
 		font-size: 0.9em;
 	}
+	/* Fenced code blocks: scroll sideways inside the box, so a long line never
+	   widens the page on a phone. */
+	.post-body :global(pre) {
+		margin: 1.5rem 0;
+		overflow-x: auto;
+		border: 3px solid var(--color-charcoal);
+		border-radius: 0.9rem;
+		background: var(--color-cream-deep);
+		padding: 1rem 1.1rem;
+		font-size: 0.85rem;
+		line-height: 1.55;
+	}
+	.post-body :global(pre code) {
+		background: none;
+		padding: 0;
+		border-radius: 0;
+		font-size: inherit;
+	}
 </style>
