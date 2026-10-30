@@ -106,6 +106,7 @@ export const projects = [
 		status: 'New',
 		tags: ['Solo Project', 'Daily Drawing', 'Preact / D1'],
 		href: 'https://johalloran.dev/squigdle/',
+		post: 'introducing-squigdle',
 		// Today's squiggles on a blank sheet, rendered by the game itself, so the
 		// poster changes daily.
 		image: 'https://johalloran.dev/squigdle/img/today-og.png',
@@ -126,6 +127,7 @@ export const projects = [
 		status: 'New',
 		tags: ['Solo Project', 'Daily Puzzle', 'PixiJS / Preact'],
 		href: 'https://johalloran.dev/lawndle/',
+		post: 'introducing-lawndle',
 		image: 'https://johalloran.dev/lawndle/icons/hero.png',
 		// PLACEHOLDER: this is a copy of the Squishy Billiards clip, standing in
 		// until a real Lawndle capture exists. Drop the new file at the same path

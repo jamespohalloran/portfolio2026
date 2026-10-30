@@ -8,7 +8,8 @@
 //  and the "recent posts" strip on the home page.
 //
 //  To add a post: drop a new `.md` file in ./posts with the same frontmatter
-//  shape (title, date, description). The slug is the filename.
+//  shape (title, date, description, and optionally `image`: an absolute URL
+//  used as the share card). The slug is the filename.
 // ─────────────────────────────────────────────────────────────────────
 
 const frontmatter = import.meta.glob('./posts/*.md', {
@@ -16,7 +17,7 @@ const frontmatter = import.meta.glob('./posts/*.md', {
 	import: 'metadata'
 });
 
-/** @type {Array<{ slug: string, title: string, date: string, description: string }>} */
+/** @type {Array<{ slug: string, title: string, date: string, description: string, image?: string }>} */
 export const posts = Object.entries(frontmatter)
 	.map(([path, metadata]) => ({
 		slug: path.split('/').pop().replace('.md', ''),

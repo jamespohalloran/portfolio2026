@@ -8,9 +8,32 @@
 	// so it can be rendered as <Content /> below.
 	$: Content = data.content;
 	$: meta = data.meta;
+
+	// Structured data: the post as a schema.org BlogPosting, so search results
+	// can show its date and author. `image` is optional frontmatter, and is
+	// also the post's share card.
+	$: postLd = JSON.stringify({
+		'@context': 'https://schema.org',
+		'@type': 'BlogPosting',
+		headline: meta.title,
+		description: meta.description,
+		datePublished: meta.date,
+		url: `https://johalloran.dev/blog/${data.slug}`,
+		...(meta.image ? { image: meta.image } : {}),
+		author: { '@type': 'Person', name: "James O'Halloran", url: 'https://johalloran.dev' }
+	}).replace(/</g, '\\u003c');
 </script>
 
-<Seo title={`${meta.title} · James O'Halloran`} description={meta.description} />
+<Seo
+	title={`${meta.title} · James O'Halloran`}
+	description={meta.description}
+	image={meta.image}
+	type="article"
+	published={meta.date}
+/>
+<svelte:head>
+	{@html `<script type="application/ld+json">${postLd}</script>`}
+</svelte:head>
 
 <article class="mx-auto max-w-2xl px-6 py-16 sm:py-24">
 	<a

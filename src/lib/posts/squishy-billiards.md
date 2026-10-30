@@ -2,6 +2,7 @@
 title: Introducing "Squishy Billiards"
 date: '2026-07-06'
 description: A gooey daily pool game.
+image: https://squishybilliards.com/hero.jpg
 ---
 
 Last year, I created a game called Kinda Hard Golf. It blew up far bigger than I ever could have anticipated.
