@@ -7,7 +7,7 @@ image: https://johalloran.dev/squigdle/img/today-og.png
 
 A new daily game, and this one's a drawing game!
 
-![Squigdle](https://johalloran.dev/squigdle/img/today-og.png)
+<video src="/projects/squigdle/Squigdle-quick.mp4" poster="https://johalloran.dev/squigdle/img/today-og.png" autoplay muted loop playsinline style="width:100%;border-radius:12px"></video>
 
 Play it Free 🎮: https://johalloran.dev/squigdle/
 
