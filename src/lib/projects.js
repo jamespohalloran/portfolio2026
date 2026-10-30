@@ -125,7 +125,7 @@ export const projects = [
 		year: '2026',
 		status: 'New',
 		tags: ['Solo Project', 'Daily Puzzle', 'PixiJS / Preact'],
-		href: 'https://johalloran.dev/lawndle',
+		href: 'https://johalloran.dev/lawndle/',
 		image: 'https://johalloran.dev/lawndle/icons/hero.png',
 		// PLACEHOLDER: this is a copy of the Squishy Billiards clip, standing in
 		// until a real Lawndle capture exists. Drop the new file at the same path

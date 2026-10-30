@@ -1,19 +1,14 @@
 <!-- /about — fuller bio page: what I've built (the games, compact — /games has
      the full cards), then where I've worked. -->
 <script>
+	import Seo from '$lib/components/Seo.svelte';
 	import { base } from '$app/paths';
 	import { games, work } from '$lib/projects';
 
 	const imgSrc = (img) => (img ? (img.startsWith('http') ? img : base + img) : null);
 </script>
 
-<svelte:head>
-	<title>About · James O'Halloran</title>
-	<meta
-		name="description"
-		content="James O'Halloran — indie game developer and software engineer from Prince Edward Island, making daily web games."
-	/>
-</svelte:head>
+<Seo title="About · James O'Halloran" description="James O'Halloran — indie game developer and software engineer from Prince Edward Island, making daily web games." />
 
 <section class="mx-auto max-w-4xl px-6 py-20 sm:py-28">
 	<div class="grid gap-10 md:grid-cols-[16rem_1fr] md:items-start">
@@ -41,7 +36,7 @@
 				<p>
 					These days I'm growing a little collection of daily games:
 					<a class="link" href="https://johalloran.dev/squigdle/">Squigdle</a>,
-					<a class="link" href="https://johalloran.dev/lawndle">Lawndle</a> and
+					<a class="link" href="https://johalloran.dev/lawndle/">Lawndle</a> and
 					<a class="link" href="https://squishybilliards.com">Squishy Billiards</a>. Before them came
 					<a class="link" href="https://kindahardgolf.com">Kinda Hard Golf</a>, which grew to over 4
 					million players before I sold it.

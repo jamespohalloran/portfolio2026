@@ -59,6 +59,14 @@
 
 <svelte:window bind:innerWidth bind:innerHeight bind:scrollY />
 
+<!-- Per-page canonical + og:url. These used to be hard-coded to the home page
+     in app.html, which told Google and every link preview that /games, /about
+     and each post were all just "/". -->
+<svelte:head>
+	<link rel="canonical" href="https://johalloran.dev{$page.url.pathname}" />
+	<meta property="og:url" content="https://johalloran.dev{$page.url.pathname}" />
+</svelte:head>
+
 <!-- Subtle pastel background gradient sits behind the whole site. -->
 <div
 	class="flex min-h-full flex-col overflow-x-clip bg-gradient-to-b from-cream via-cream to-cream-deep"

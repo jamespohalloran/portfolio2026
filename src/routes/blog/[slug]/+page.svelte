@@ -1,4 +1,5 @@
 <script>
+	import Seo from '$lib/components/Seo.svelte';
 	import { formatDate } from '$lib/formatDate';
 
 	export let data;
@@ -9,10 +10,7 @@
 	$: meta = data.meta;
 </script>
 
-<svelte:head>
-	<title>{meta.title} · James O'Halloran</title>
-	<meta name="description" content={meta.description} />
-</svelte:head>
+<Seo title={`${meta.title} · James O'Halloran`} description={meta.description} />
 
 <article class="mx-auto max-w-2xl px-6 py-16 sm:py-24">
 	<a

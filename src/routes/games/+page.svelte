@@ -8,6 +8,7 @@
      Everything reads from $lib/projects so nothing can drift apart. The
      professional work that used to share this page lives on /about now. -->
 <script>
+	import Seo from '$lib/components/Seo.svelte';
 	import { base } from '$app/paths';
 	import { games } from '$lib/projects';
 
@@ -34,6 +35,35 @@
 		const v = event.currentTarget.querySelector('video');
 		v?.play?.().catch(() => {}); // interrupted by a fast mouse-out; harmless
 	}
+	// Structured data: the page's games as a schema.org ItemList of VideoGames.
+	// Google shows no special rich result for games, but this is how it (and
+	// other crawlers) learn that each card IS a free browser game by a person,
+	// rather than inferring it from the prose. Built from $lib/projects, so a
+	// new game is listed here the moment it's added there.
+	const SITE = 'https://johalloran.dev';
+	const absolute = (url) => (url?.startsWith('http') ? url : url ? SITE + url : undefined);
+	const jsonLd = JSON.stringify({
+		'@context': 'https://schema.org',
+		'@type': 'ItemList',
+		name: "Games by James O'Halloran",
+		itemListElement: games.map((g, i) => ({
+			'@type': 'ListItem',
+			position: i + 1,
+			item: {
+				'@type': 'VideoGame',
+				name: g.title,
+				url: g.href,
+				description: g.details,
+				image: absolute(g.image),
+				dateCreated: g.year,
+				gamePlatform: g.platform ?? 'Web browser',
+				...(g.platform ? {} : { applicationCategory: 'Game', isAccessibleForFree: true }),
+				author: { '@id': `${SITE}/#james` } // the Person on the home page
+			}
+		}))
+		// `<` escaped so a closing script tag inside any blurb can't end the tag early.
+	}).replace(/</g, '\\u003c');
+
 	function stop(event) {
 		const v = event.currentTarget.querySelector('video');
 		if (!v) return;
@@ -42,12 +72,9 @@
 	}
 </script>
 
+<Seo title="Games · James O'Halloran" description="Free daily web games by James O'Halloran — Squigdle, Lawndle, Squishy Billiards, and Kinda Hard Golf. A new puzzle every day, no download." />
 <svelte:head>
-	<title>Games · James O'Halloran</title>
-	<meta
-		name="description"
-		content="Daily web games by James O'Halloran — Squigdle, Lawndle, Squishy Billiards, and the ones that found new homes, like Kinda Hard Golf."
-	/>
+	{@html `<script type="application/ld+json">${jsonLd}</script>`}
 </svelte:head>
 
 <section class="mx-auto max-w-5xl px-6 py-20 sm:py-28">

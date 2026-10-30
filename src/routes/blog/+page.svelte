@@ -1,16 +1,11 @@
 <!-- /blog — the full post archive (Temporal Lobe). -->
 <script>
+	import Seo from '$lib/components/Seo.svelte';
 	import { posts } from '$lib/posts';
 	import { formatDate } from '$lib/formatDate';
 </script>
 
-<svelte:head>
-	<title>Blog · James O'Halloran</title>
-	<meta
-		name="description"
-		content="Thoughts on software design, personal projects, and occasional life stuff."
-	/>
-</svelte:head>
+<Seo title="Blog · James O'Halloran" description="Thoughts on software design, personal projects, and occasional life stuff." />
 
 <section class="mx-auto max-w-3xl px-6 py-20 sm:py-28">
 	<div class="flex items-center gap-3">

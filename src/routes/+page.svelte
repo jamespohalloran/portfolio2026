@@ -6,9 +6,30 @@
 	import { fade, fly, slide } from 'svelte/transition';
 	import { cubicOut } from 'svelte/easing';
 	import { posts } from '$lib/posts';
-	import { featuredProjects } from '$lib/projects';
+	import { featuredProjects, games, work } from '$lib/projects';
 	import { formatDate } from '$lib/formatDate';
 	import ContactSection from '$lib/components/ContactSection.svelte';
+	import Seo from '$lib/components/Seo.svelte';
+
+	// Structured data: who I am, as a schema.org Person. The `@id` is the anchor
+	// every game's own structured data points at as its author (Lawndle, Squigdle
+	// and Squishy Billiards all say `"@id": "https://johalloran.dev/#james"`), so
+	// search engines can join the games up into one person's catalogue.
+	const personLd = JSON.stringify({
+		'@context': 'https://schema.org',
+		'@type': 'Person',
+		'@id': 'https://johalloran.dev/#james',
+		name: "James O'Halloran",
+		url: 'https://johalloran.dev',
+		image: 'https://johalloran.dev/social-james.jpg',
+		jobTitle: 'Software Engineer & daily web game developer',
+		homeLocation: { '@type': 'Place', name: 'Prince Edward Island, Canada' },
+		worksFor: work[0] && { '@type': 'Organization', name: work[0].title, url: work[0].href },
+		// Only the games still mine — the sold ones have new owners.
+		owns: games
+			.filter((g) => g.status !== 'Sold' && !g.platform)
+			.map((g) => ({ '@type': 'VideoGame', name: g.title, url: g.href }))
+	}).replace(/</g, '\\u003c');
 
 	// ─────────────────────────────────────────────────────────────────────
 	//  HOME — "Scroll to zoom into James's brain", then browse the segments.
@@ -1053,6 +1074,14 @@
 <!-- ═══════════════════════════════════════════════════════════════════
      INTRO — pinned scroll-zoom + segment browse.
      ═══════════════════════════════════════════════════════════════════ -->
+<Seo
+	title="James O'Halloran - Daily Web Game Creator"
+	description="I'm James, a software engineer from PEI, Canada, making daily web games like Squigdle, Lawndle and Squishy Billiards."
+/>
+<svelte:head>
+	{@html `<script type="application/ld+json">${personLd}</script>`}
+</svelte:head>
+
 <!-- Accessible page heading. Visually hidden because the hero is a scroll-driven
      illustration, but screen readers and search engines need a real h1. -->
 <h1 class="sr-only">James O'Halloran — making daily web games from PEI, Canada</h1>
