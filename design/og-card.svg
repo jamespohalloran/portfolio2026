@@ -27,7 +27,7 @@
 	<rect width="1200" height="630" fill="url(#cool)" />
 
 	<!-- Faint outline of the site's brain (static/brain.svg), off the bottom right. -->
-	<g transform="translate(640 262) scale(0.1849)" opacity="0.6">
+	<g transform="translate(680 268) scale(0.215)" opacity="0.55">
 		<g transform="matrix(1,0,0,1,-682.163472,-700.102682)">
         <g id="bottom" transform="matrix(1,0,0,1,-380,2)">
             <path d="M2593.346,2682.147C2594.775,2720.02 2627.413,2915.037 2909.232,2902.004C2905.615,2906.441 2884.338,2924.401 2897.43,2944.334C2944.206,3015.552 3184.955,3298.358 3220.886,3314.315C3294.094,3346.827 3422.519,3267.269 3425.262,3252.638C3429.856,3228.136 3350.516,3039.081 3324.619,2986.984C3302.892,2943.274 3028.502,2616.685 3003.544,2604.744C2916.496,2563.094 2789.717,2468.088 2689.817,2538.566C2586.416,2611.513 2591.995,2668.375 2593.346,2682.147Z" style="fill:none;"/>
@@ -124,8 +124,8 @@
 
 	<!-- The highlight is sized to the label at render time (script below);
 	     the width here fits "Software Engineer" for design tools. -->
-	<rect id="highlight" x="532" y="364" width="420" height="21" fill="#ffb59e" />
-	<text id="label" x="538" y="376" font-size="45" font-weight="800">Software Engineer</text>
+	<rect id="highlight" x="532" y="366" width="416" height="18" fill="#ffb59e" />
+	<text id="label" x="539" y="374" font-size="45" font-weight="800" letter-spacing="0.5">Software Engineer</text>
 
 	<text x="532" y="446" font-size="27" font-weight="500" style="fill:#4a454f">Web dev &amp; game dev, from PEI Canada.</text>
 

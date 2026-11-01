@@ -22,7 +22,7 @@ const CARDS = {
 	games: 'Web Games',
 	blog: 'Blog',
 	about: 'Software Engineer',
-	contact: 'Say Hello'
+	contact: 'Contact Me'
 };
 
 const CHROME =
