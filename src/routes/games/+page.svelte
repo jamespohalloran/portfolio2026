@@ -42,34 +42,48 @@
 	// new game is listed here the moment it's added there.
 	const SITE = 'https://johalloran.dev';
 	const absolute = (url) => (url?.startsWith('http') ? url : url ? SITE + url : undefined);
+	// Wrapped in a CollectionPage so the page can name its own image: Google's
+	// result thumbnail otherwise picks from the page, and landed on Miner
+	// Meltdown's poster (the only same-site game image) over the share card.
 	const jsonLd = JSON.stringify({
 		'@context': 'https://schema.org',
-		'@type': 'ItemList',
-		name: "Games by James O'Halloran",
-		itemListElement: games.map((g, i) => ({
-			'@type': 'ListItem',
-			position: i + 1,
-			item: {
-				'@type': 'VideoGame',
-				name: g.title,
-				url: g.href,
-				description: g.details,
-				image: absolute(g.image),
-				dateCreated: g.year,
-				gamePlatform: g.platform ?? 'Web browser',
-				...(g.platform ? {} : { applicationCategory: 'Game', isAccessibleForFree: true }),
-				// Spelled out in full, not a bare { '@id' } link: that Person is
-				// defined on the home page, and validators choke on a reference to
-				// a node that isn't on the page they're reading. The @id still
-				// joins the two up.
-				author: {
-					'@type': 'Person',
-					'@id': `${SITE}/#james`,
-					name: "James O'Halloran",
-					url: SITE
+		'@type': 'CollectionPage',
+		url: `${SITE}/games`,
+		name: "Games · James O'Halloran",
+		primaryImageOfPage: {
+			'@type': 'ImageObject',
+			url: `${SITE}/og/games.jpg`,
+			width: 1200,
+			height: 630
+		},
+		mainEntity: {
+			'@type': 'ItemList',
+			name: "Games by James O'Halloran",
+			itemListElement: games.map((g, i) => ({
+				'@type': 'ListItem',
+				position: i + 1,
+				item: {
+					'@type': 'VideoGame',
+					name: g.title,
+					url: g.href,
+					description: g.details,
+					image: absolute(g.image),
+					dateCreated: g.year,
+					gamePlatform: g.platform ?? 'Web browser',
+					...(g.platform ? {} : { applicationCategory: 'Game', isAccessibleForFree: true }),
+					// Spelled out in full, not a bare { '@id' } link: that Person is
+					// defined on the home page, and validators choke on a reference to
+					// a node that isn't on the page they're reading. The @id still
+					// joins the two up.
+					author: {
+						'@type': 'Person',
+						'@id': `${SITE}/#james`,
+						name: "James O'Halloran",
+						url: SITE
+					}
 				}
-			}
-		}))
+			}))
+		}
 		// `<` escaped so a closing script tag inside any blurb can't end the tag early.
 	}).replace(/</g, '\\u003c');
 
@@ -81,7 +95,7 @@
 	}
 </script>
 
-<Seo title="Games · James O'Halloran" description="Free daily web games by James O'Halloran — Squigdle, Lawndle, Squishy Billiards, and Kinda Hard Golf. A new puzzle every day, no download." />
+<Seo title="Games · James O'Halloran" description="Free daily web games by James O'Halloran — Squigdle, Lawndle, Squishy Billiards, and Kinda Hard Golf. A new puzzle every day, no download." card="games" />
 <svelte:head>
 	{@html `<script type="application/ld+json">${jsonLd}</script>`}
 </svelte:head>

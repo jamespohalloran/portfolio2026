@@ -8,7 +8,7 @@
 	const imgSrc = (img) => (img ? (img.startsWith('http') ? img : base + img) : null);
 </script>
 
-<Seo title="About · James O'Halloran" description="James O'Halloran — indie game developer and software engineer from Prince Edward Island, making daily web games." />
+<Seo title="About · James O'Halloran" description="James O'Halloran — indie game developer and software engineer from Prince Edward Island, making daily web games." card="about" />
 
 <section class="mx-auto max-w-4xl px-6 py-20 sm:py-28">
 	<div class="grid gap-10 md:grid-cols-[16rem_1fr] md:items-start">

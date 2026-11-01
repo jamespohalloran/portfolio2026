@@ -4,7 +4,7 @@
 	import ContactSection from '$lib/components/ContactSection.svelte';
 </script>
 
-<Seo title="Contact · James O'Halloran" description="Get in touch with James O'Halloran." />
+<Seo title="Contact · James O'Halloran" description="Get in touch with James O'Halloran." card="contact" />
 
 <div class="pt-10">
 	<ContactSection />

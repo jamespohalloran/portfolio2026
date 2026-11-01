@@ -5,7 +5,7 @@
 	import { formatDate } from '$lib/formatDate';
 </script>
 
-<Seo title="Blog · James O'Halloran" description="Thoughts on software design, personal projects, and occasional life stuff." />
+<Seo title="Blog · James O'Halloran" description="Thoughts on software design, personal projects, and occasional life stuff." card="blog" />
 
 <section class="mx-auto max-w-3xl px-6 py-20 sm:py-28">
 	<div class="flex items-center gap-3">
