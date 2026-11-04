@@ -1749,7 +1749,7 @@
 				Hey, I'm James.
 			</h2>
 			<p class="mt-5 text-lg leading-relaxed text-charcoal-soft">
-				I’m a software engineer from PEI, Canada, and I make small daily web games: Squigdle, Lawndle and Squishy Billiards, and before them Kinda Hard Golf, which grew to over 4 million players before I sold it. Before that I spent 15 years building software at places like Brilliant.org, Iron Fox Games and TinaCMS. These days I just like making things that are fun to poke at. Go play something, and tell me what you think.
+				I’m a software engineer from PEI, Canada, and I make small daily web games: <a class="link" href="https://squigdle.com/">Squigdle</a>, <a class="link" href="https://johalloran.dev/lawndle/">Lawndle</a> and <a class="link" href="https://squishybilliards.com">Squishy Billiards</a>, and before them Kinda Hard Golf, which grew to over 4 million players before I sold it. Before that I spent 15 years building software at places like Brilliant.org, Iron Fox Games and TinaCMS. These days I just like making things that are fun to poke at. Go play something, and tell me what you think.
 			</p>
 		</div>
 	</div>

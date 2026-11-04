@@ -2,14 +2,14 @@
 title: Introducing "Squigdle"
 date: "2026-10-28"
 description: A daily drawing game. Everyone gets the same three squiggles, turns them into a doodle, then votes on everyone else's.
-image: https://johalloran.dev/squigdle/img/today-og.png
+image: https://squigdle.com/img/today-og.png
 ---
 
 A new daily game, and this one's a drawing game!
 
-<video src="/projects/squigdle/Squigdle-quick.mp4" poster="https://johalloran.dev/squigdle/img/today-og.png" autoplay muted loop playsinline style="width:100%;border-radius:12px"></video>
+<video src="/projects/squigdle/Squigdle-quick.mp4" poster="https://squigdle.com/img/today-og.png" autoplay muted loop playsinline style="width:100%;border-radius:12px"></video>
 
-Play it Free 🎮: https://johalloran.dev/squigdle/
+Play it Free 🎮: https://squigdle.com/
 
 Every day, everyone gets the same three squiggles. Drag them, spin them, and doodle them into a picture with a limited amount of ink. No undo, so every line counts.
 

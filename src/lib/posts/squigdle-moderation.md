@@ -2,10 +2,10 @@
 title: Moderating 500 daily anonymous doodles with Jev
 date: "2026-10-30"
 description: Squigdle lets strangers share drawings anonymously. Here's how I keep it (mostly) clean.
-image: https://johalloran.dev/squigdle/img/today-og.png
+image: https://squigdle.com/img/today-og.png
 ---
 
-I made [Squigdle](https://johalloran.dev/squigdle/), a daily drawing game. Everyone gets the same three squiggles, turns them into a doodle, then votes on everyone else's.
+I made [Squigdle](https://squigdle.com/), a daily drawing game. Everyone gets the same three squiggles, turns them into a doodle, then votes on everyone else's.
 
 <video src="/projects/squigdle/Squigdle-quick.mp4" autoplay muted loop playsinline style="width:100%;border-radius:12px"></video>
 
@@ -64,7 +64,7 @@ After ~1,000 doodles, it's holding up really well. The misses are the occasional
 
 ![The Squigdle admin for day #2: clean doodles with their Jev scores, and an NSFW one (sexual 90%) blurred out](/posts/squigdle-moderation/admin.jpg)
 
-If you want to see what everyone made with today's squiggles, [come check it out!](https://johalloran.dev/squigdle/) (And please don't take this as an open invitation to stress-test the limits of the moderation, it's really designed to be a family friendly game 🙂)
+If you want to see what everyone made with today's squiggles, [come check it out!](https://squigdle.com/) (And please don't take this as an open invitation to stress-test the limits of the moderation, it's really designed to be a family friendly game 🙂)
 
 Cheers,
 James

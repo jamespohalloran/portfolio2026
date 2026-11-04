@@ -24,10 +24,10 @@ const sitemaps = [
 	// file lists /lawndle/ and /lawndle/privacy. A sitemap at a subpath may only
 	// list URLs at or below it, which it respects, so referencing it from the
 	// root index is valid even though a different repo emits it.
-	{ loc: `${SITE}/lawndle/sitemap.xml` },
-	// Same arrangement for Squigdle: packages/games/squigdle/vite/sitemap.ts
-	// emits /squigdle/ and /squigdle/privacy/.
-	{ loc: `${SITE}/squigdle/sitemap.xml` }
+	{ loc: `${SITE}/lawndle/sitemap.xml` }
+	// Squigdle used to be listed here too; it moved to squigdle.com, which
+	// serves its own sitemap. A sitemap index may only list sitemaps on its own
+	// host, so it can't be referenced from here.
 ];
 
 export function GET() {
