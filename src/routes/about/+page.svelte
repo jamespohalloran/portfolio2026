@@ -35,7 +35,7 @@
 				</p>
 				<p>
 					These days I'm growing a little collection of daily games:
-					<a class="link" href="https://johalloran.dev/squigdle/">Squigdle</a>,
+					<a class="link" href="https://squigdle.com/">Squigdle</a>,
 					<a class="link" href="https://johalloran.dev/lawndle/">Lawndle</a> and
 					<a class="link" href="https://squishybilliards.com">Squishy Billiards</a>. Before them came
 					<a class="link" href="https://kindahardgolf.com">Kinda Hard Golf</a>, which grew to over 4

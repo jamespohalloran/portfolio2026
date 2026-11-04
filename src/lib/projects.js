@@ -100,16 +100,16 @@ export const projects = [
 		details:
 			'A daily drawing game. Everyone gets the same three squiggles: move them, spin them, and doodle them into a picture with limited ink. Then vote on everyone else’s.',
 		context:
-			'Launched October 2026, the second daily game served from this site after Lawndle. Unlike Lawndle it has a real backend: drawings, votes and rankings live in D1, with sign-in, moderation and a server-rendered share card for every doodle.',
+			'Launched October 2026 on this site, then moved to squigdle.com a month later. Unlike Lawndle it has a real backend: drawings, votes and rankings live in D1, with sign-in, moderation and a server-rendered share card for every doodle.',
 		period: '2026 — present',
 		year: '2026',
 		status: 'New',
 		tags: ['Solo Project', 'Daily Drawing', 'Preact / D1'],
-		href: 'https://johalloran.dev/squigdle/',
+		href: 'https://squigdle.com/',
 		post: 'introducing-squigdle',
 		// Today's squiggles on a blank sheet, rendered by the game itself, so the
 		// poster changes daily.
-		image: 'https://johalloran.dev/squigdle/img/today-og.png',
+		image: 'https://squigdle.com/img/today-og.png',
 		imageBg: '#efe6d2',
 		video: '/projects/squigdle/Squigdle-quick.mp4',
 		featured: true
